@@ -1,6 +1,7 @@
 import { useState, useActionState } from 'react';
 import { submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
+import { ResultsPanel } from '../components/ResultsPanel';
 import styles from './Home.module.css';
 
 type ActionState =
@@ -150,10 +151,7 @@ export function Home() {
 
         {state.status === 'complete' && state.results.status === 'success' && state.results.analysis && (
           <div className={styles.results}>
-            {/* Results display — implemented in 022-results-panel.md */}
-            <pre className={styles.jsonOutput}>
-              {JSON.stringify(state.results.analysis, null, 2)}
-            </pre>
+            <ResultsPanel result={state.results.analysis} />
           </div>
         )}
       </div>

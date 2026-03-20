@@ -14,9 +14,12 @@
     "react-router": "^7.4.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.0.1",
     "typescript": "^5.8.2",
     "vite": "^6.2.2"
   }
