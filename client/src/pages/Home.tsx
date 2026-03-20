@@ -17,7 +17,8 @@ export function Home() {
   const [results, setResults] = useState<ManualTestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!code.trim()) return;
 
     setAppState('submitting');
@@ -50,7 +51,7 @@ export function Home() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.inputPanel}>
+      <form className={styles.inputPanel} onSubmit={handleSubmit}>
         <h2 className={styles.panelTitle}>Component Input</h2>
 
         <div className={styles.field}>
@@ -120,7 +121,7 @@ export function Home() {
         </div>
 
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={!code.trim() || appState === 'submitting' || appState === 'analyzing'}
           className={styles.submitButton}
         >
@@ -130,7 +131,7 @@ export function Home() {
               ? 'Analyzing...'
               : 'Analyze Component'}
         </button>
-      </div>
+      </form>
 
       <div className={styles.resultsPanel}>
         <h2 className={styles.panelTitle}>Results</h2>
