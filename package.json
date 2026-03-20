@@ -18,7 +18,13 @@
     "start": "node server/dist/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "docker:dev": "docker compose up",
+    "docker:dev:build": "docker compose up --build",
+    "docker:dev:down": "docker compose down",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up",
+    "docker:prod:build": "docker compose -f docker-compose.prod.yml up --build",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down"
   },
   "engines": {
     "node": ">=24.0.0"
