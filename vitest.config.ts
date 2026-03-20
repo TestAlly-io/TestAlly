@@ -5,6 +5,24 @@ export default defineConfig({
   plugins: [react()],
   test: {
     passWithNoTests: true,
+    projects: [
+      {
+        plugins: [react()],
+        test: {
+          name: 'client',
+          environment: 'jsdom',
+          include: ['client/src/**/*.test.{ts,tsx}'],
+          setupFiles: ['client/src/test-setup.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'server',
+          environment: 'node',
+          include: ['server/src/**/*.test.ts'],
+        },
+      },
+    ],
     globals: true,
     projects: [
       {
