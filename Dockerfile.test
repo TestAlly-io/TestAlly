@@ -1,0 +1,11 @@
+FROM node:24-alpine
+WORKDIR /app
+
+# Install dependencies inside the container
+COPY package*.json ./
+COPY client/package*.json ./client/
+COPY server/package*.json ./server/
+RUN npm install
+
+# Source code is bind-mounted at runtime, but node_modules
+# stays in the container's /app/node_modules (not overwritten)
