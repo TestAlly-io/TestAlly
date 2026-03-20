@@ -101,8 +101,8 @@ describe('JobManager', () => {
   });
 
   describe('getJob', () => {
-    it('returns undefined for unknown ID', () => {
-      expect(manager.getJob('nonexistent')).toBeUndefined();
+    it('throws for unknown ID', () => {
+      expect(() => manager.getJob('nonexistent')).toThrow('Job not found: nonexistent');
     });
   });
 });

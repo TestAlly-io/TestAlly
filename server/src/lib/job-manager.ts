@@ -124,10 +124,10 @@ export class JobManager {
   }
 
   /**
-   * Retrieve a job by ID. Returns undefined if not found.
+   * Retrieve a job by ID. Throws if not found.
    */
-  getJob(jobId: string): Job | undefined {
-    return this.jobs.get(jobId);
+  getJob(jobId: string): Job {
+    return this.getJobOrThrow(jobId);
   }
 
   /**
