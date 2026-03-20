@@ -1,0 +1,32 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #1a1a2e;
+  background: #f8f9fa;
+}
+
+.header {
+  padding: 1rem 2rem;
+  background: #1a1a2e;
+  color: #fff;
+  border-bottom: 3px solid #4361ee;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #a0a4b8;
+}
+
+.main {
+  flex: 1;
+  padding: 1.5rem 2rem;
+}

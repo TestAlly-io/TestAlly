@@ -1,0 +1,30 @@
+services:
+  server:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm install && cd server && npx nodemon -L --exec tsx src/index.ts"
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      API_PORT: 3001
+
+  client:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev --workspace=client -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      VITE_API_PROXY_TARGET: http://server:3001
+    depends_on:
+      - server
