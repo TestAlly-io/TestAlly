@@ -1,67 +1,65 @@
-import { useState, useCallback } from 'react';
+import { useState, useActionState } from 'react';
 import { submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import styles from './Home.module.css';
 
-type AppState = 'idle' | 'submitting' | 'analyzing' | 'complete' | 'error';
+type ActionState =
+  | { status: 'idle' }
+  | { status: 'complete'; results: ManualTestResponse }
+  | { status: 'error'; message: string };
+
+function SubmitButton({ isPending, progress }: { isPending: boolean; progress: JobStatus | null }) {
+  return (
+    <button type="submit" disabled={isPending} className={styles.submitButton}>
+      {isPending
+        ? progress
+          ? 'Analyzing...'
+          : 'Submitting...'
+        : 'Analyze Component'}
+    </button>
+  );
+}
 
 export function Home() {
-  const [code, setCode] = useState('');
-  const [language, setLanguage] = useState<AnalyzeRequest['language']>('html');
-  const [description, setDescription] = useState('');
-  const [css, setCss] = useState('');
-  const [js, setJs] = useState('');
-
-  const [appState, setAppState] = useState<AppState>('idle');
   const [progress, setProgress] = useState<JobStatus | null>(null);
-  const [results, setResults] = useState<ManualTestResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!code.trim()) return;
+  const [state, dispatch, isPending] = useActionState(
+    async (_prevState: ActionState, formData: FormData): Promise<ActionState> => {
+      const code = (formData.get('code') as string)?.trim();
+      if (!code) return { status: 'error', message: 'Component code is required' };
 
-    setAppState('submitting');
-    setError(null);
-    setResults(null);
+      setProgress(null);
 
-    try {
-      const response = await submitAnalysis({
-        code,
-        language,
-        description: description || undefined,
-        css: css || undefined,
-        js: js || undefined,
-      });
+      try {
+        const response = await submitAnalysis({
+          code,
+          language: formData.get('language') as AnalyzeRequest['language'],
+          description: (formData.get('description') as string) || undefined,
+          css: (formData.get('css') as string) || undefined,
+          js: (formData.get('js') as string) || undefined,
+        });
 
-      setAppState('analyzing');
+        await pollJobStatus(response.jobId, (status) => {
+          setProgress(status);
+        });
 
-      await pollJobStatus(response.jobId, (status) => {
-        setProgress(status);
-      });
-
-      const testResults = await getManualTestResults(response.jobId);
-      setResults(testResults);
-      setAppState('complete');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setAppState('error');
-    }
-  }, [code, language, description, css, js]);
+        const results = await getManualTestResults(response.jobId);
+        return { status: 'complete', results };
+      } catch (err) {
+        return { status: 'error', message: err instanceof Error ? err.message : 'An error occurred' };
+      }
+    },
+    { status: 'idle' },
+  );
 
   return (
     <div className={styles.container}>
-      <form className={styles.inputPanel} onSubmit={handleSubmit}>
+      <form className={styles.inputPanel} action={dispatch}>
         <h2 className={styles.panelTitle}>Component Input</h2>
 
         <div className={styles.field}>
           <label htmlFor="language" className={styles.label}>Language</label>
-          <select
-            id="language"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as AnalyzeRequest['language'])}
-            className={styles.select}
-          >
+          <select id="language" name="language" defaultValue="html" className={styles.select}>
             <option value="html">HTML</option>
             <option value="jsx">JSX</option>
             <option value="tsx">TSX</option>
@@ -76,8 +74,8 @@ export function Home() {
           </label>
           <textarea
             id="code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
+            name="code"
+            required
             className={styles.codeInput}
             placeholder="Paste your component HTML/JSX here..."
             rows={12}
@@ -88,9 +86,8 @@ export function Home() {
           <label htmlFor="description" className={styles.label}>Description (optional)</label>
           <input
             id="description"
+            name="description"
             type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
             className={styles.input}
             placeholder='e.g., "Accordion with three sections"'
           />
@@ -100,8 +97,7 @@ export function Home() {
           <label htmlFor="css" className={styles.label}>CSS (optional)</label>
           <textarea
             id="css"
-            value={css}
-            onChange={(e) => setCss(e.target.value)}
+            name="css"
             className={styles.codeInput}
             placeholder="Associated CSS styles..."
             rows={4}
@@ -112,37 +108,26 @@ export function Home() {
           <label htmlFor="js" className={styles.label}>JavaScript (optional)</label>
           <textarea
             id="js"
-            value={js}
-            onChange={(e) => setJs(e.target.value)}
+            name="js"
             className={styles.codeInput}
             placeholder="Associated JavaScript..."
             rows={4}
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={!code.trim() || appState === 'submitting' || appState === 'analyzing'}
-          className={styles.submitButton}
-        >
-          {appState === 'submitting'
-            ? 'Submitting...'
-            : appState === 'analyzing'
-              ? 'Analyzing...'
-              : 'Analyze Component'}
-        </button>
+        <SubmitButton isPending={isPending} progress={progress} />
       </form>
 
       <div className={styles.resultsPanel}>
         <h2 className={styles.panelTitle}>Results</h2>
 
-        {appState === 'idle' && (
+        {state.status === 'idle' && !isPending && (
           <p className={styles.placeholder}>
             Submit a component to see accessibility testing results.
           </p>
         )}
 
-        {appState === 'analyzing' && progress && (
+        {isPending && progress && (
           <div className={styles.progress}>
             <div className={styles.progressPhase}>{progress.phase}</div>
             <p>{progress.description}</p>
@@ -157,17 +142,17 @@ export function Home() {
           </div>
         )}
 
-        {appState === 'error' && (
+        {state.status === 'error' && (
           <div className={styles.error} role="alert">
-            <strong>Error:</strong> {error}
+            <strong>Error:</strong> {state.message}
           </div>
         )}
 
-        {appState === 'complete' && results?.status === 'success' && results.analysis && (
+        {state.status === 'complete' && state.results.status === 'success' && state.results.analysis && (
           <div className={styles.results}>
             {/* Results display — implemented in 022-results-panel.md */}
             <pre className={styles.jsonOutput}>
-              {JSON.stringify(results.analysis, null, 2)}
+              {JSON.stringify(state.results.analysis, null, 2)}
             </pre>
           </div>
         )}
