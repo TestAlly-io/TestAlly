@@ -86,6 +86,7 @@ describe('validateWalkthrough', () => {
   });
 
   it('returns fallback result when all retries fail', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     const invokeMock = vi.fn().mockResolvedValue({ content: 'not json' });
 
     const { createModel } = await import('../config.js');

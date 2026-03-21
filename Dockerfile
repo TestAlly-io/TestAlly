@@ -7,6 +7,9 @@ WORKDIR /app
 
 # ---- Dependencies ----
 FROM base AS deps
+# Native libs required by the canvas npm package (used by axe-core in tests).
+RUN apk add --no-cache build-base g++ cairo-dev pango-dev giflib-dev jpeg-dev librsvg-dev
+ENV FONTCONFIG_FILE=/etc/fonts/fonts.conf
 COPY package*.json ./
 COPY client ./client
 COPY server ./server
