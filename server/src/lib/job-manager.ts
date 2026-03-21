@@ -1,9 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createActor } from 'xstate';
+import { createActor, type AnyActorRef } from 'xstate';
 import type { AnalysisInput } from '../types/analysis.js';
 import type { AnalysisResult } from '../types/ittt.js';
 import { PIPELINE_PHASES, type Job, type PipelinePhase } from '../types/job.js';
-import { analysisMachine, createAnalysisMachine, type MachineContext, type PipelineRunners } from './analysis-machine.js';
+import { createAnalysisMachine, type MachineContext, type PipelineRunners } from './analysis-machine.js';
+import { StubLintRunner } from './runners/lint-runner.js';
+import { StubAnalyzeRunner } from './runners/analyze-runner.js';
+import { StubGenerateRunner } from './runners/generate-runner.js';
+import { StubValidateRunner } from './runners/validate-runner.js';
 
 const MAX_CONCURRENT_JOBS = 10;
 
@@ -42,12 +46,22 @@ function buildResult(ctx: MachineContext): AnalysisResult {
   };
 }
 
+function defaultRunners(): PipelineRunners {
+  return {
+    lint: new StubLintRunner(),
+    analyze: new StubAnalyzeRunner(),
+    generate: new StubGenerateRunner(),
+    validate: new StubValidateRunner(),
+  };
+}
+
 export class JobManager {
   private readonly jobs = new Map<string, Job>();
-  private readonly machine: typeof analysisMachine;
+  private readonly actors = new Map<string, AnyActorRef>();
+  private readonly machine: ReturnType<typeof createAnalysisMachine>;
 
   constructor(runners?: PipelineRunners) {
-    this.machine = runners ? createAnalysisMachine(runners) : analysisMachine;
+    this.machine = createAnalysisMachine(runners ?? defaultRunners());
   }
 
   /**
@@ -82,13 +96,13 @@ export class JobManager {
     this.jobs.set(id, job);
 
     const actor = createActor(this.machine, { input: { analysisInput: input } });
+    this.actors.set(id, actor);
 
     actor.subscribe((snapshot) => {
       const stateValue = snapshot.value as string;
       const ctx = snapshot.context;
       const ts = now();
 
-      // Only update phase/phaseIndex for valid pipeline phases
       if ((PIPELINE_PHASES as readonly string[]).includes(stateValue)) {
         job.phase = stateValue as PipelinePhase;
         job.phaseIndex = PIPELINE_PHASES.indexOf(stateValue as PipelinePhase);
@@ -102,10 +116,12 @@ export class JobManager {
         job.status = 'completed';
         job.completedAt = ts;
         job.result = buildResult(ctx);
+        this.actors.delete(id);
       } else if (stateValue === 'FAILED') {
         job.status = 'failed';
         job.failedAt = ts;
         job.errors = ctx.errors;
+        this.actors.delete(id);
       } else if (stateValue === 'SUBMIT') {
         job.status = 'accepted';
       } else {
@@ -122,6 +138,31 @@ export class JobManager {
     return this.jobs.get(jobId);
   }
 
+  /**
+   * Cancel a running job. Stops its actor and marks it as failed.
+   * Returns true if the job was cancelled, false if not found or already terminal.
+   */
+  cancelJob(jobId: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job || job.status === 'completed' || job.status === 'failed') {
+      return false;
+    }
+
+    const actor = this.actors.get(jobId);
+    if (actor) {
+      actor.stop();
+      this.actors.delete(jobId);
+    }
+
+    const ts = now();
+    job.status = 'failed';
+    job.failedAt = ts;
+    job.updatedAt = ts;
+    job.errors = [{ message: 'Job cancelled', phase: job.phase }];
+
+    return true;
+  }
+
   /** Count of jobs that are accepted or in_progress. */
   getActiveJobCount(): number {
     let count = 0;
@@ -133,6 +174,3 @@ export class JobManager {
     return count;
   }
 }
-
-/** Singleton instance using default stub runners. */
-export const jobManager = new JobManager();

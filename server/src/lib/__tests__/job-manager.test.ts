@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { JobManager } from '../job-manager.js';
-import { createAnalysisMachine } from '../analysis-machine.js';
 import type { AnalysisInput } from '../../types/analysis.js';
 import type { PhaseRunner } from '../phase-runner.js';
 import type { LintInput } from '../runners/lint-runner.js';
@@ -9,6 +8,7 @@ import type { GenerateInput } from '../runners/generate-runner.js';
 import type { ValidateInput, ValidationOutput } from '../runners/validate-runner.js';
 import type { AutomatedResults, ComponentAnalysis } from '../../types/analysis.js';
 import type { ManualTest } from '../../types/ittt.js';
+import type { Job } from '../../types/job.js';
 
 const sampleInput: AnalysisInput = {
   code: '<div class="accordion">test</div>',
@@ -16,9 +16,16 @@ const sampleInput: AnalysisInput = {
   description: 'Accordion component',
 };
 
-/** Pause for the microtask queue and pending promises to flush. */
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 50));
+/** Wait until a job reaches a terminal state (completed or failed). */
+function waitForDone(job: Job): Promise<void> {
+  return vi.waitFor(
+    () => {
+      if (job.status !== 'completed' && job.status !== 'failed') {
+        throw new Error(`still ${job.status}`);
+      }
+    },
+    { timeout: 2000, interval: 10 },
+  );
 }
 
 /** Build a JobManager backed by stub runners that resolve instantly. */
@@ -72,7 +79,6 @@ describe('JobManager', () => {
     });
 
     it('returns null when at capacity', async () => {
-      const manager = makeManager();
       // Fill capacity with jobs that won't complete quickly
       const neverResolve: PhaseRunner<LintInput, AutomatedResults> = {
         execute: () => new Promise(() => {}),
@@ -98,7 +104,7 @@ describe('JobManager', () => {
       const manager = makeManager();
       const job = manager.createJob(sampleInput)!;
 
-      await flush();
+      await waitForDone(job);
 
       expect(job.phase).toBe('COMPLETE');
       expect(job.status).toBe('completed');
@@ -110,7 +116,7 @@ describe('JobManager', () => {
       const manager = makeManager();
       const job = manager.createJob(sampleInput)!;
 
-      await flush();
+      await waitForDone(job);
 
       expect(job.result?.component.type).toBe('accordion');
       expect(job.result?.component.confidence).toBe(90);
@@ -122,7 +128,7 @@ describe('JobManager', () => {
       const job = manager.createJob(sampleInput)!;
 
       // No transitionTo calls — job should still complete
-      await flush();
+      await waitForDone(job);
 
       expect(job.status).toBe('completed');
     });
@@ -141,7 +147,7 @@ describe('JobManager', () => {
       });
 
       const job = manager.createJob(sampleInput)!;
-      await flush();
+      await waitForDone(job);
 
       expect(job.status).toBe('failed');
       expect(job.failedAt).not.toBeNull();
@@ -163,7 +169,7 @@ describe('JobManager', () => {
       });
 
       const job = manager.createJob(sampleInput)!;
-      await flush();
+      await waitForDone(job);
 
       expect(job.status).toBe('completed');
       expect(validateCallCount).toBe(2);
@@ -178,7 +184,7 @@ describe('JobManager', () => {
       });
 
       const job = manager.createJob(sampleInput)!;
-      await flush();
+      await waitForDone(job);
 
       expect(job.status).toBe('failed');
       expect(job.errors[0]?.message).toMatch(/iteration/i);
@@ -196,7 +202,7 @@ describe('JobManager', () => {
       });
 
       const job = manager.createJob(sampleInput)!;
-      await flush();
+      await waitForDone(job);
 
       expect(job.status).toBe('failed');
       expect(job.failedAt).not.toBeNull();
@@ -215,6 +221,72 @@ describe('JobManager', () => {
       const manager = makeManager();
       const job = manager.createJob(sampleInput)!;
       expect(manager.getJob(job.id)).toBe(job);
+    });
+  });
+
+  describe('cancelJob', () => {
+    it('stops a running job and marks it as failed', async () => {
+      // Use a runner that never resolves to keep the job in-progress
+      const manager = new JobManager({
+        lint: { execute: () => new Promise(() => {}) },
+        analyze: { execute: () => new Promise(() => {}) },
+        generate: { execute: () => new Promise(() => {}) },
+        validate: { execute: () => new Promise(() => {}) },
+      });
+
+      const job = manager.createJob(sampleInput)!;
+      expect(job.status).not.toBe('completed');
+
+      const cancelled = manager.cancelJob(job.id);
+      expect(cancelled).toBe(true);
+      expect(job.status).toBe('failed');
+      expect(job.errors[0]?.message).toMatch(/cancel/i);
+    });
+
+    it('returns false for unknown job ID', () => {
+      const manager = makeManager();
+      expect(manager.cancelJob('nonexistent')).toBe(false);
+    });
+
+    it('returns false for already-completed job', async () => {
+      const manager = makeManager();
+      const job = manager.createJob(sampleInput)!;
+      await waitForDone(job);
+
+      expect(job.status).toBe('completed');
+      expect(manager.cancelJob(job.id)).toBe(false);
+    });
+
+    it('decrements active job count after cancellation', () => {
+      const manager = new JobManager({
+        lint: { execute: () => new Promise(() => {}) },
+        analyze: { execute: () => new Promise(() => {}) },
+        generate: { execute: () => new Promise(() => {}) },
+        validate: { execute: () => new Promise(() => {}) },
+      });
+
+      const job = manager.createJob(sampleInput)!;
+      expect(manager.getActiveJobCount()).toBe(1);
+
+      manager.cancelJob(job.id);
+      expect(manager.getActiveJobCount()).toBe(0);
+    });
+  });
+
+  describe('getActiveJobCount', () => {
+    it('returns 0 when no jobs exist', () => {
+      const manager = makeManager();
+      expect(manager.getActiveJobCount()).toBe(0);
+    });
+
+    it('returns 0 after all jobs complete', async () => {
+      const manager = makeManager();
+      const job1 = manager.createJob(sampleInput)!;
+      const job2 = manager.createJob(sampleInput)!;
+      await waitForDone(job1);
+      await waitForDone(job2);
+
+      expect(manager.getActiveJobCount()).toBe(0);
     });
   });
 });

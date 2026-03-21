@@ -7,10 +7,6 @@ import type { LintInput } from './runners/lint-runner.js';
 import type { AnalyzeInput } from './runners/analyze-runner.js';
 import type { GenerateInput } from './runners/generate-runner.js';
 import type { ValidateInput, ValidationOutput } from './runners/validate-runner.js';
-import { StubLintRunner } from './runners/lint-runner.js';
-import { StubAnalyzeRunner } from './runners/analyze-runner.js';
-import { StubGenerateRunner } from './runners/generate-runner.js';
-import { StubValidateRunner } from './runners/validate-runner.js';
 
 export const MAX_ITERATIONS = 2;
 
@@ -38,43 +34,41 @@ function toError(phase: PipelinePhase, err: unknown): JobError {
   };
 }
 
+/** Helper: wrap a PhaseRunner into an xstate fromPromise actor, checking the gate first. */
+function runnerActor<TIn, TOut>(
+  runner: PhaseRunner<TIn, TOut>,
+  phase: string,
+): ReturnType<typeof fromPromise<TOut, TIn>> {
+  return fromPromise<TOut, TIn>(async ({ input }) => {
+    if (runner.gate && !runner.gate()) {
+      throw new Error(`Gate condition failed for ${phase}`);
+    }
+    return runner.execute(input);
+  });
+}
+
 /**
- * Base analysis pipeline machine. Uses stub runners by default.
- * Call `.provide({ actors: { ... } })` to inject real runners.
+ * Base analysis pipeline machine definition.
+ * Actor slots are typed but use unreachable placeholders — always call
+ * `createAnalysisMachine(runners)` to get a usable instance.
  */
-export const analysisMachine = setup({
+const analysisMachine = setup({
   types: {
     context: {} as MachineContext,
     input: {} as { analysisInput: AnalysisInput },
   },
   actors: {
-    runLint: fromPromise<AutomatedResults, LintInput>(async ({ input }) => {
-      const runner: PhaseRunner<LintInput, AutomatedResults> = new StubLintRunner();
-      if (runner.gate && !runner.gate()) {
-        throw new Error('Gate condition failed for LINT');
-      }
-      return runner.execute(input);
+    runLint: fromPromise<AutomatedResults, LintInput>(async () => {
+      throw new Error('No runner provided — use createAnalysisMachine()');
     }),
-    runAnalyze: fromPromise<ComponentAnalysis, AnalyzeInput>(async ({ input }) => {
-      const runner: PhaseRunner<AnalyzeInput, ComponentAnalysis> = new StubAnalyzeRunner();
-      if (runner.gate && !runner.gate()) {
-        throw new Error('Gate condition failed for ANALYZE');
-      }
-      return runner.execute(input);
+    runAnalyze: fromPromise<ComponentAnalysis, AnalyzeInput>(async () => {
+      throw new Error('No runner provided — use createAnalysisMachine()');
     }),
-    runGenerate: fromPromise<ManualTest[], GenerateInput>(async ({ input }) => {
-      const runner: PhaseRunner<GenerateInput, ManualTest[]> = new StubGenerateRunner();
-      if (runner.gate && !runner.gate()) {
-        throw new Error('Gate condition failed for GENERATE');
-      }
-      return runner.execute(input);
+    runGenerate: fromPromise<ManualTest[], GenerateInput>(async () => {
+      throw new Error('No runner provided — use createAnalysisMachine()');
     }),
-    runValidate: fromPromise<ValidationOutput, ValidateInput>(async ({ input }) => {
-      const runner: PhaseRunner<ValidateInput, ValidationOutput> = new StubValidateRunner();
-      if (runner.gate && !runner.gate()) {
-        throw new Error('Gate condition failed for VALIDATE');
-      }
-      return runner.execute(input);
+    runValidate: fromPromise<ValidationOutput, ValidateInput>(async () => {
+      throw new Error('No runner provided — use createAnalysisMachine()');
     }),
   },
 }).createMachine({
@@ -167,13 +161,11 @@ export const analysisMachine = setup({
         }),
         onDone: [
           {
-            // Validation passed — complete the job
             guard: ({ event }) => event.output.passed,
             target: 'COMPLETE',
             actions: assign({ validationResult: ({ event }) => event.output }),
           },
           {
-            // Validation failed but iterations remain — loop back to ANALYZE
             guard: ({ context }) => context.iterationCount < MAX_ITERATIONS,
             target: 'ANALYZE',
             actions: assign(({ context, event }) => ({
@@ -182,7 +174,6 @@ export const analysisMachine = setup({
             })),
           },
           {
-            // Max iterations exceeded — fail the job
             target: 'FAILED',
             actions: assign({
               errors: () => [
@@ -202,7 +193,6 @@ export const analysisMachine = setup({
     },
 
     // BUILD and RENDER are post-MVP — reserved slots between LINT and ANALYZE.
-    // Insert them here when the execution driver is built.
 
     COMPLETE: { type: 'final' },
     FAILED: { type: 'final' },
@@ -211,35 +201,15 @@ export const analysisMachine = setup({
 
 /**
  * Create an analysis machine with injected phase runners.
- * Use this in production and in tests that need custom runner behaviour.
+ * This is the only way to get a usable machine instance.
  */
 export function createAnalysisMachine(runners: PipelineRunners) {
   return analysisMachine.provide({
     actors: {
-      runLint: fromPromise<AutomatedResults, LintInput>(async ({ input }) => {
-        if (runners.lint.gate && !runners.lint.gate()) {
-          throw new Error('Gate condition failed for LINT');
-        }
-        return runners.lint.execute(input);
-      }),
-      runAnalyze: fromPromise<ComponentAnalysis, AnalyzeInput>(async ({ input }) => {
-        if (runners.analyze.gate && !runners.analyze.gate()) {
-          throw new Error('Gate condition failed for ANALYZE');
-        }
-        return runners.analyze.execute(input);
-      }),
-      runGenerate: fromPromise<ManualTest[], GenerateInput>(async ({ input }) => {
-        if (runners.generate.gate && !runners.generate.gate()) {
-          throw new Error('Gate condition failed for GENERATE');
-        }
-        return runners.generate.execute(input);
-      }),
-      runValidate: fromPromise<ValidationOutput, ValidateInput>(async ({ input }) => {
-        if (runners.validate.gate && !runners.validate.gate()) {
-          throw new Error('Gate condition failed for VALIDATE');
-        }
-        return runners.validate.execute(input);
-      }),
+      runLint: runnerActor(runners.lint, 'LINT'),
+      runAnalyze: runnerActor(runners.analyze, 'ANALYZE'),
+      runGenerate: runnerActor(runners.generate, 'GENERATE'),
+      runValidate: runnerActor(runners.validate, 'VALIDATE'),
     },
   });
 }
