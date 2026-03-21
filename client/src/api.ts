@@ -1,6 +1,7 @@
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
+  InferComponentResponse,
   JobStatus,
   ManualTestResponse,
 } from './types/api';
@@ -14,8 +15,11 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || `HTTP ${response.status}`);
+    const body = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new Error(body.message || body.error || `HTTP ${response.status}`);
   }
 
   return response.json() as Promise<T>;
@@ -25,6 +29,14 @@ export async function submitAnalysis(input: AnalyzeRequest): Promise<AnalyzeResp
   return request<AnalyzeResponse>('/analyze', {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+/** LLM: classify pasted content — language, pattern label, split description vs code. */
+export async function inferComponent(raw: string): Promise<InferComponentResponse> {
+  return request<InferComponentResponse>('/infer-component', {
+    method: 'POST',
+    body: JSON.stringify({ raw }),
   });
 }
 

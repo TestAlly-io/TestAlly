@@ -112,6 +112,13 @@
   letter-spacing: 0.05em;
 }
 
+.progress p {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: #555;
+  line-height: 1.45;
+}
+
 .progressBar {
   height: 6px;
   background: #e0e0e0;

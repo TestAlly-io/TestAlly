@@ -11,6 +11,18 @@ export interface AnalyzeRequest {
   js?: string;
 }
 
+/** Response from POST /api/infer-component (infer language/pattern/summary from component source). */
+export interface InferComponentResponse {
+  language: AnalyzeRequest['language'];
+  componentKind: string;
+  /** Inferred testing focus from source; client sends original paste as `code` to analyze. */
+  description: string;
+  /** Often empty when the API expects the client to keep the original source. */
+  code: string;
+  css?: string;
+  js?: string;
+}
+
 export interface AnalyzeResponse {
   status: 'accepted';
   jobId: string;

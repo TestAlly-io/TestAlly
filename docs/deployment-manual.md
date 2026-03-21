@@ -285,6 +285,32 @@ services:
       - testally
 ```
 
+#### Updating Dockerfiles and rebuilding images
+
+The **canonical** multi-stage build lives in the **repo-root `Dockerfile`**. The example embedded earlier in this section may lag behind; always compare with the real file when following these notes.
+
+| Change in the repo | What to update |
+|--------------------|----------------|
+| **New client static assets** (`client/public/*`, favicons, logos) | No Dockerfile edit required if files live under `client/` — they are included in the `deps` / `client-builder` stages. **Rebuild the image** so `client/dist` picks them up. |
+| **Client or server dependencies** | `package.json` / lockfile changes are copied in `deps` / `prod-deps`. Rebuild; use `docker build --no-cache` if the image still shows old behavior. |
+| **Stale UI in the image** | The Dockerfile may use a `CACHEBUST` build-arg on the client stage. Rebuild with e.g. `docker build --build-arg CACHEBUST=$(date +%s) -t testally .` or `--no-cache` for the client-builder stage. |
+| **Listen port** | Keep **`API_PORT`** (app), **`EXPOSE`**, **`HEALTHCHECK` URL**, and **`docker run -p host:container`** aligned. The app reads `process.env.API_PORT` (default `3001`). |
+| **LLM / secrets** | Do **not** commit real API keys or host-specific IPs in the Dockerfile. Pass **`LLM_API_URL`**, **`LLM_MODEL`**, **`LLM_TOKEN`** at **run time** (`docker run -e …`, Compose `environment`, or `env_file`). From inside the container, `localhost` is the container itself — use **`host.docker.internal`** (Docker Desktop), the host LAN IP, or a service name on Compose networks to reach Ollama or another LLM on the host. |
+| **Node.js version** | Bump the **`FROM node:…-alpine`** images to match **`package.json` `engines.node`** and CI. |
+| **Monorepo layout** (`client/`, `server/`, workspaces) | Adjust **`COPY`** paths and stage boundaries if you move packages or add workspaces. Ensure **`npm install` / `npm ci`** still run from the repo root context expected by the Dockerfile. |
+| **Server runtime files outside `dist`** | If the server loads JSON/YAML or other files at runtime (e.g. WCAG data), add a matching **`COPY --from=…`** into the **runner** stage to the path **`import.meta.url`** resolves to in production. |
+| **`.dockerignore`** | Update when new directories should be excluded from the build context (faster builds, smaller uploads) or when something **must** be included that was previously ignored. |
+
+**Quick verification after Dockerfile edits:**
+
+```bash
+docker build -t testally .
+docker run --rm -p 3001:3001 --env-file .env.production testally
+# In another terminal:
+curl -s http://localhost:3001/api/health
+curl -sI http://localhost:3001/ | head -3
+```
+
 ### 5.2 Option B: Node.js Direct
 
 For simple deployments without containerization.

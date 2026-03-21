@@ -2,7 +2,7 @@ import { useState, useActionState } from 'react';
 import { submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import { ResultsPanel } from '../components/ResultsPanel';
-import styles from './Home.module.css';
+import styles from './ClassicWorkspace.module.css';
 
 type ActionState =
   | { status: 'idle' }
@@ -21,7 +21,10 @@ function SubmitButton({ isPending, progress }: { isPending: boolean; progress: J
   );
 }
 
-export function Home() {
+/**
+ * Multi-field component form (language, code, optional description/css/js) — matches the pre–single-field shell.
+ */
+export function ClassicWorkspace() {
   const [progress, setProgress] = useState<JobStatus | null>(null);
 
   const [state, dispatch, isPending] = useActionState(
@@ -59,8 +62,15 @@ export function Home() {
         <h2 className={styles.panelTitle}>Component Input</h2>
 
         <div className={styles.field}>
-          <label htmlFor="language" className={styles.label}>Language</label>
-          <select id="language" name="language" defaultValue="html" className={styles.select}>
+          <label htmlFor="classic-language" className={styles.label}>
+            Language
+          </label>
+          <select
+            id="classic-language"
+            name="language"
+            defaultValue="html"
+            className={styles.select}
+          >
             <option value="html">HTML</option>
             <option value="jsx">JSX</option>
             <option value="tsx">TSX</option>
@@ -70,23 +80,26 @@ export function Home() {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="code" className={styles.label}>
+          <label htmlFor="classic-code" className={styles.label}>
             Component Code <span className={styles.required}>*</span>
           </label>
           <textarea
-            id="code"
+            id="classic-code"
             name="code"
             required
             className={styles.codeInput}
             placeholder="Paste your component HTML/JSX here..."
             rows={12}
+            spellCheck={false}
           />
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="description" className={styles.label}>Description (optional)</label>
+          <label htmlFor="classic-description" className={styles.label}>
+            Description (optional)
+          </label>
           <input
-            id="description"
+            id="classic-description"
             name="description"
             type="text"
             className={styles.input}
@@ -95,24 +108,30 @@ export function Home() {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="css" className={styles.label}>CSS (optional)</label>
+          <label htmlFor="classic-css" className={styles.label}>
+            CSS (optional)
+          </label>
           <textarea
-            id="css"
+            id="classic-css"
             name="css"
             className={styles.codeInput}
             placeholder="Associated CSS styles..."
             rows={4}
+            spellCheck={false}
           />
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="js" className={styles.label}>JavaScript (optional)</label>
+          <label htmlFor="classic-js" className={styles.label}>
+            JavaScript (optional)
+          </label>
           <textarea
-            id="js"
+            id="classic-js"
             name="js"
             className={styles.codeInput}
             placeholder="Associated JavaScript..."
             rows={4}
+            spellCheck={false}
           />
         </div>
 
@@ -149,11 +168,13 @@ export function Home() {
           </div>
         )}
 
-        {state.status === 'complete' && state.results.status === 'success' && state.results.analysis && (
-          <div className={styles.results}>
-            <ResultsPanel result={state.results.analysis} />
-          </div>
-        )}
+        {state.status === 'complete' &&
+          state.results.status === 'success' &&
+          state.results.analysis && (
+            <div className={styles.results}>
+              <ResultsPanel result={state.results.analysis} />
+            </div>
+          )}
       </div>
     </div>
   );

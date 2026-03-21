@@ -55,7 +55,8 @@ SUBMIT → LINT → [BUILD* → RENDER*] → ANALYZE → GENERATE → VALIDATE �
 
 ```
 client/          # Vite + React SPA
-  src/pages/     # Home.tsx
+  src/pages/     # ClassicWorkspace.tsx (multi-field), OneInputWorkspace.tsx (single paste)
+ src/layout/    # AppShell.tsx — Overview = ClassicWorkspace, One input = OneInputWorkspace
   src/components/# CodeEditor, ResultsPanel, ManualTestCard
 server/          # Express.js backend
   src/routes/    # API endpoints

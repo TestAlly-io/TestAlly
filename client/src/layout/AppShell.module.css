@@ -1,0 +1,110 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1.15rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.headerBrand {
+  flex-shrink: 0;
+}
+
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 0.12em;
+  margin: 0;
+  line-height: 1;
+}
+
+.logo {
+  display: block;
+  height: 2.5rem;
+  width: auto;
+  max-width: min(280px, 72vw);
+  object-fit: contain;
+  object-position: left center;
+}
+
+.tagline {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #64748b;
+  max-width: 28rem;
+  line-height: 1.45;
+}
+
+.tabBar {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tabList {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tab {
+  margin: 0;
+  padding: 0;
+}
+
+.tabButton {
+  position: relative;
+  padding: 0.55rem 0.9rem;
+  margin-bottom: -1px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.tabButton:hover {
+  color: #374151;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.tabButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgb(199 210 254 / 0.9);
+}
+
+.tabButton[aria-selected='true'] {
+  color: #1f2937;
+  background: #fdfdfd;
+  border-color: #e8eaef;
+  border-bottom-color: #fdfdfd;
+  box-shadow: 0 -1px 0 #fdfdfd;
+}
+
+.panels {
+  flex: 1;
+  min-height: 0;
+}
+
+.tabPanel {
+  margin: 0;
+}
+
+.tabPanel[hidden] {
+  display: none;
+}

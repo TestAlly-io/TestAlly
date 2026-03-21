@@ -188,6 +188,10 @@ Dockerfile             (new)
 server/src/index.ts    (modified — added static file serving)
 ```
 
+## Maintaining the Dockerfile
+
+When the app or repo layout changes, contributors should adjust the root **`Dockerfile`** (and **`.dockerignore`**) as needed. See **`docs/deployment-manual.md` → §5.1 → “Updating Dockerfiles and rebuilding images”** for a checklist: client `public/` assets, dependency/`COPY` paths, **`API_PORT`** / **`EXPOSE`** / health checks, runtime **`LLM_*`** via env at run time (not baked-in secrets), Node image bumps, and busting cache when the built UI looks stale.
+
 ## Next Step
 
 Proceed to `003-local-dev-docker-compose.md`.
