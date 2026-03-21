@@ -67,6 +67,12 @@ export async function runAxeAnalysis(html: string): Promise<AxeRunnerResult> {
   const dom = new JSDOM(documentHtml, {
     runScripts: 'outside-only',
     pretendToBeVisual: true,
+    beforeParse(window) {
+      // Stub canvas getContext to suppress jsdom "Not implemented" errors.
+      // axe-core probes canvas support but does not require it.
+      window.HTMLCanvasElement.prototype.getContext = (() =>
+        null) as unknown as typeof window.HTMLCanvasElement.prototype.getContext;
+    },
   });
   const { window } = dom;
 
