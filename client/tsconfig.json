@@ -17,5 +17,6 @@
     "sourceMap": true,
     "composite": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test-setup.ts"]
 }

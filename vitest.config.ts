@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     passWithNoTests: true,
+    globals: true,
     projects: [
       {
         plugins: [react()],
@@ -23,9 +24,5 @@ export default defineConfig({
         },
       },
     ],
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
-    include: ['client/src/**/*.test.{ts,tsx}', 'server/src/**/*.test.ts'],
   },
 });

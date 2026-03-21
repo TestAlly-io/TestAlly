@@ -1,5 +1,6 @@
 IMAGE_NAME := testally
-DOCKER_RUN := docker run --rm -v $(CURDIR):/app -w /app $(IMAGE_NAME)
+BUILD_IMAGE := testally-build
+DOCKER_BUILD_RUN := docker run --rm -v $(CURDIR):/app -w /app $(BUILD_IMAGE)
 
 TEST_IMAGE := testally-test
 TEST_RUN := docker run --rm \
@@ -13,22 +14,22 @@ TEST_RUN := docker run --rm \
 	-v $(CURDIR)/tsconfig.json:/app/tsconfig.json:ro \
 	-w /app $(TEST_IMAGE)
 
-.PHONY: build build-image build-client build-server ensure-image \
+.PHONY: build build-image build-client build-server ensure-build-image \
 	test test-client test-server build-test-image ensure-test-image
 
 build: build-client build-server
 
 build-image:
-	docker build -t $(IMAGE_NAME) .
+	docker build --target deps -t $(BUILD_IMAGE) .
 
-ensure-image:
-	@docker image inspect $(IMAGE_NAME) >/dev/null 2>&1 || $(MAKE) build-image
+ensure-build-image:
+	@docker image inspect $(BUILD_IMAGE) >/dev/null 2>&1 || $(MAKE) build-image
 
-build-client: ensure-image
-	$(DOCKER_RUN) npm run build --workspace=client
+build-client: ensure-build-image
+	$(DOCKER_BUILD_RUN) npm run build --workspace=client
 
-build-server: ensure-image
-	$(DOCKER_RUN) npm run build --workspace=server
+build-server: ensure-build-image
+	$(DOCKER_BUILD_RUN) npm run build --workspace=server
 
 build-test-image:
 	docker build -t $(TEST_IMAGE) -f Dockerfile.test .
