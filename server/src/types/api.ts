@@ -1,12 +1,12 @@
-import type { SourceLanguage } from './analysis.js';
 import type { AnalysisResult, AnalysisMetadata } from './ittt.js';
 import type { PipelinePhase, JobError } from './job.js';
 
 // --- Request types ---
 
+// Minimal stub — expanded when shared types (004) are fully implemented.
 export interface AnalyzeRequest {
   code: string;
-  language: SourceLanguage;
+  language: string;
   description?: string;
   css?: string;
   js?: string;
