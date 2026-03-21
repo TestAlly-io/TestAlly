@@ -11,12 +11,13 @@ export function createManualTestRouter(jobManager: JobManager): Router {
   const router = Router();
 
   router.get('/:jobId', standardLimiter, (req, res) => {
-    const job = jobManager.getJob(req.params.jobId);
+    const jobId = req.params.jobId as string;
+    const job = jobManager.getJob(jobId);
 
     if (!job) {
       const error: ErrorResponse = {
         error: 'Not Found',
-        message: `Job ${req.params.jobId} not found`,
+        message: `Job ${jobId} not found`,
         statusCode: 404,
       };
       res.status(404).json(error);
