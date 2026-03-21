@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { jobManager } from '../lib/job-manager.js';
+import type { JobManager } from '../lib/job-manager.js';
 import { standardLimiter } from '../middleware/index.js';
 import type {
   StatusResponseInProgress,
@@ -8,59 +8,62 @@ import type {
   ErrorResponse,
 } from '../types/api.js';
 
-export const statusRouter = Router();
+export function createStatusRouter(jobManager: JobManager): Router {
+  const router = Router();
 
-statusRouter.get('/:jobId', standardLimiter, (req, res) => {
-  const jobId = req.params.jobId as string;
-  const job = jobManager.getJob(jobId);
+  router.get('/:jobId', standardLimiter, (req, res) => {
+    const job = jobManager.getJob(req.params.jobId);
 
-  if (!job) {
-    const error: ErrorResponse = {
-      error: 'Not Found',
-      message: `Job ${jobId} not found`,
-      statusCode: 404,
-    };
-    res.status(404).json(error);
-    return;
-  }
+    if (!job) {
+      const error: ErrorResponse = {
+        error: 'Not Found',
+        message: `Job ${req.params.jobId} not found`,
+        statusCode: 404,
+      };
+      res.status(404).json(error);
+      return;
+    }
 
-  if (job.status === 'failed') {
-    const response: StatusResponseFailed = {
-      status: 'failed',
+    if (job.status === 'failed') {
+      const response: StatusResponseFailed = {
+        status: 'failed',
+        jobId: job.id,
+        phase: job.phase,
+        description: job.description,
+        errors: job.errors,
+        startedAt: job.startedAt,
+        failedAt: job.failedAt ?? job.updatedAt,
+      };
+      res.json(response);
+      return;
+    }
+
+    if (job.status === 'completed') {
+      const response: StatusResponseCompleted = {
+        status: 'completed',
+        jobId: job.id,
+        phase: 'COMPLETE',
+        description: job.description,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt ?? job.updatedAt,
+        resultsUrl: `/api/manual-test/${job.id}`,
+      };
+      res.json(response);
+      return;
+    }
+
+    const response: StatusResponseInProgress = {
+      status: 'in_progress',
       jobId: job.id,
       phase: job.phase,
-      description: job.description,
-      errors: job.errors,
-      startedAt: job.startedAt,
-      failedAt: job.failedAt!,
-    };
-    res.json(response);
-    return;
-  }
-
-  if (job.status === 'completed') {
-    const response: StatusResponseCompleted = {
-      status: 'completed',
-      jobId: job.id,
-      phase: 'COMPLETE',
+      phaseIndex: job.phaseIndex,
+      totalPhases: job.totalPhases,
       description: job.description,
       startedAt: job.startedAt,
-      completedAt: job.completedAt!,
-      resultsUrl: `/api/manual-test/${job.id}`,
+      updatedAt: job.updatedAt,
     };
     res.json(response);
-    return;
-  }
+  });
 
-  const response: StatusResponseInProgress = {
-    status: 'in_progress',
-    jobId: job.id,
-    phase: job.phase,
-    phaseIndex: job.phaseIndex,
-    totalPhases: job.totalPhases,
-    description: job.description,
-    startedAt: job.startedAt,
-    updatedAt: job.updatedAt,
-  };
-  res.json(response);
-});
+  return router;
+}

@@ -1,4 +1,4 @@
-export { analyzeRouter } from './analyze.js';
-export { statusRouter } from './status.js';
-export { manualTestRouter } from './manual-test.js';
-export { healthRouter } from './health.js';
+export { createAnalyzeRouter } from './analyze.js';
+export { createStatusRouter } from './status.js';
+export { createManualTestRouter } from './manual-test.js';
+export { createHealthRouter } from './health.js';

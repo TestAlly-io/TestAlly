@@ -16,40 +16,22 @@ import type {
   ErrorResponse,
   HealthResponse,
 } from '../../types/api.js';
-
-// ---------------------------------------------------------------------------
-// Mock the jobManager singleton so we can swap it per test.
-// The real JobManager class is imported directly for constructing instances.
-// ---------------------------------------------------------------------------
-
-const mockModule = { jobManager: null as unknown as JobManager };
-
-vi.mock('../../lib/job-manager.js', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../lib/job-manager.js')>();
-  return {
-    ...original,
-    get jobManager() {
-      return mockModule.jobManager;
-    },
-  };
-});
-
-import { analyzeRouter } from '../analyze.js';
-import { statusRouter } from '../status.js';
-import { manualTestRouter } from '../manual-test.js';
-import { healthRouter } from '../health.js';
+import { createAnalyzeRouter } from '../analyze.js';
+import { createStatusRouter } from '../status.js';
+import { createManualTestRouter } from '../manual-test.js';
+import { createHealthRouter } from '../health.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createTestApp() {
+function createTestApp(jobManager: JobManager) {
   const app = express();
   app.use(express.json());
-  app.use('/api/analyze', analyzeRouter);
-  app.use('/api/status', statusRouter);
-  app.use('/api/manual-test', manualTestRouter);
-  app.use('/api/health', healthRouter);
+  app.use('/api/analyze', createAnalyzeRouter(jobManager));
+  app.use('/api/status', createStatusRouter(jobManager));
+  app.use('/api/manual-test', createManualTestRouter(jobManager));
+  app.use('/api/health', createHealthRouter());
   return app;
 }
 
@@ -105,11 +87,12 @@ const validInput = { code: '<div class="accordion">test</div>', language: 'html'
 // ---------------------------------------------------------------------------
 
 describe('API Routes', () => {
+  let jobManager: JobManager;
   let app: ReturnType<typeof express>;
 
   beforeEach(() => {
-    mockModule.jobManager = new JobManager(defaultRunners());
-    app = createTestApp();
+    jobManager = new JobManager(defaultRunners());
+    app = createTestApp(jobManager);
   });
 
   // ---- Health ----
@@ -147,8 +130,8 @@ describe('API Routes', () => {
     });
 
     it('returns 503 when at maximum job capacity', async () => {
-      mockModule.jobManager = new JobManager(blockingRunners());
-      app = createTestApp();
+      jobManager = new JobManager(blockingRunners());
+      app = createTestApp(jobManager);
 
       for (let i = 0; i < 10; i++) {
         await request(app).post('/api/analyze').send(validInput);
@@ -197,7 +180,7 @@ describe('API Routes', () => {
         .post('/api/analyze')
         .send(validInput);
       const { jobId } = createRes.body as AnalyzeResponse;
-      const job = mockModule.jobManager.getJob(jobId)!;
+      const job = jobManager.getJob(jobId)!;
       await waitForDone(job);
 
       const res = await request(app).get(`/api/status/${jobId}`);
@@ -212,19 +195,19 @@ describe('API Routes', () => {
     });
 
     it('returns failed status for a failed job', async () => {
-      mockModule.jobManager = new JobManager({
+      jobManager = new JobManager({
         ...defaultRunners(),
         lint: {
           execute: async () => { throw new Error('LLM unavailable'); },
         },
       });
-      app = createTestApp();
+      app = createTestApp(jobManager);
 
       const createRes = await request(app)
         .post('/api/analyze')
         .send(validInput);
       const { jobId } = createRes.body as AnalyzeResponse;
-      const job = mockModule.jobManager.getJob(jobId)!;
+      const job = jobManager.getJob(jobId)!;
       await waitForDone(job);
 
       const res = await request(app).get(`/api/status/${jobId}`);
@@ -238,8 +221,8 @@ describe('API Routes', () => {
     });
 
     it('returns in_progress for a job still running', async () => {
-      mockModule.jobManager = new JobManager(blockingRunners());
-      app = createTestApp();
+      jobManager = new JobManager(blockingRunners());
+      app = createTestApp(jobManager);
 
       const createRes = await request(app)
         .post('/api/analyze')
@@ -274,8 +257,8 @@ describe('API Routes', () => {
     });
 
     it('returns in_progress for an unfinished job', async () => {
-      mockModule.jobManager = new JobManager(blockingRunners());
-      app = createTestApp();
+      jobManager = new JobManager(blockingRunners());
+      app = createTestApp(jobManager);
 
       const createRes = await request(app)
         .post('/api/analyze')
@@ -293,19 +276,19 @@ describe('API Routes', () => {
     });
 
     it('returns 422 for a failed job', async () => {
-      mockModule.jobManager = new JobManager({
+      jobManager = new JobManager({
         ...defaultRunners(),
         lint: {
           execute: async () => { throw new Error('LLM unavailable'); },
         },
       });
-      app = createTestApp();
+      app = createTestApp(jobManager);
 
       const createRes = await request(app)
         .post('/api/analyze')
         .send(validInput);
       const { jobId } = createRes.body as AnalyzeResponse;
-      const job = mockModule.jobManager.getJob(jobId)!;
+      const job = jobManager.getJob(jobId)!;
       await waitForDone(job);
 
       const res = await request(app).get(`/api/manual-test/${jobId}`);
@@ -322,7 +305,7 @@ describe('API Routes', () => {
         .post('/api/analyze')
         .send(validInput);
       const { jobId } = createRes.body as AnalyzeResponse;
-      const job = mockModule.jobManager.getJob(jobId)!;
+      const job = jobManager.getJob(jobId)!;
       await waitForDone(job);
 
       const res = await request(app).get(`/api/manual-test/${jobId}`);

@@ -1,26 +1,36 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { corsMiddleware } from './middleware/index.js';
+import { JobManager } from './lib/job-manager.js';
+import {
+  createAnalyzeRouter,
+  createStatusRouter,
+  createManualTestRouter,
+  createHealthRouter,
+} from './routes/index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const app = express();
+export function createApp(jobManager?: JobManager): express.Express {
+  const app = express();
+  const jm = jobManager ?? new JobManager();
 
-app.use(express.json());
+  app.use(corsMiddleware);
+  app.use(express.json({ limit: '200kb' }));
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'healthy' });
-});
+  app.use('/api/analyze', createAnalyzeRouter(jm));
+  app.use('/api/status', createStatusRouter(jm));
+  app.use('/api/manual-test', createManualTestRouter(jm));
+  app.use('/api/health', createHealthRouter());
 
-if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.join(__dirname, '../client');
+  if (process.env.NODE_ENV === 'production') {
+    const clientDist = path.join(__dirname, '../../client/dist');
+    app.use(express.static(clientDist));
+    app.get('/{*splat}', (_req, res) => {
+      res.sendFile(path.join(clientDist, 'index.html'));
+    });
+  }
 
-  app.use(express.static(clientDist));
-
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
-  });
+  return app;
 }
-
-export default app;

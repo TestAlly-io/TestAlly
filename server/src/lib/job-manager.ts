@@ -174,6 +174,3 @@ export class JobManager {
     return count;
   }
 }
-
-/** Singleton instance used by route handlers. */
-export const jobManager = new JobManager();
