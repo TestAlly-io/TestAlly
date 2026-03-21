@@ -2,7 +2,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatOpenAI } from '@langchain/openai';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
-export type LlmRole = 'planning' | 'generation' | 'validation';
+export type LlmRole = 'planning' | 'generation' | 'validation' | 'inference';
 export type LlmProvider = 'anthropic' | 'openai' | 'cloudfest' | 'deepseek';
 
 interface RoleConfig {
@@ -14,7 +14,9 @@ interface RoleConfig {
   maxTokens: number;
 }
 
-const CLOUDFEST_HOST = process.env.CLOUDFEST_HOST ?? '172.26.32.29:11435';
+function getCloudfestHost(): string {
+  return process.env.CLOUDFEST_HOST ?? '172.26.32.29:11435';
+}
 
 const PROVIDER_DEFAULTS: Record<LlmProvider, string> = {
   anthropic: 'claude-sonnet-4-20250514',
@@ -46,6 +48,7 @@ const ROLE_DEFAULTS: Record<LlmRole, { temperature: number; maxTokens: number }>
   planning:   { temperature: 0,   maxTokens: 4096 },
   generation: { temperature: 0.2, maxTokens: 8192 },
   validation: { temperature: 0,   maxTokens: 4096 },
+  inference:  { temperature: 0.1, maxTokens: 4096 },
 };
 
 function getRoleConfig(role: LlmRole): RoleConfig {
@@ -96,6 +99,31 @@ function resolveApiKey(config: RoleConfig, role: LlmRole): string {
   );
 }
 
+/**
+ * Returns the resolved base URL for a role's provider (for raw-fetch consumers).
+ * Falls back to `http://{CLOUDFEST_HOST}/v1` for the cloudfest provider.
+ */
+export function getRoleBaseUrl(role: LlmRole): string | null {
+  const config = getRoleConfig(role);
+  if (config.host) return config.host;
+  if (config.provider === 'cloudfest') return `http://${getCloudfestHost()}/v1`;
+  return null;
+}
+
+/**
+ * Returns auth headers for a role's provider (for raw-fetch consumers).
+ */
+export function getRoleAuthHeaders(role: LlmRole): Record<string, string> {
+  const config = getRoleConfig(role);
+  try {
+    const key = resolveApiKey(config, role);
+    if (key && key !== 'cloudfest') return { Authorization: `Bearer ${key}` };
+  } catch {
+    // No key configured — return empty headers
+  }
+  return {};
+}
+
 export function createModel(role: LlmRole): BaseChatModel {
   const config = getRoleConfig(role);
 
@@ -139,7 +167,7 @@ export function createModel(role: LlmRole): BaseChatModel {
         temperature: config.temperature,
         maxTokens: config.maxTokens,
         configuration: {
-          baseURL: config.host ?? `http://${CLOUDFEST_HOST}/v1`,
+          baseURL: config.host ?? `http://${getCloudfestHost()}/v1`,
         },
         apiKey: 'cloudfest',
       });

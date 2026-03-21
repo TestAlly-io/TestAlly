@@ -1,17 +1,17 @@
 import { createApp } from './app.js';
-import { getLlmApiBaseUrl } from './lib/llmConfig.js';
+import { getRoleBaseUrl } from './lib/llm/config.js';
 
 const PORT = Number(process.env.API_PORT ?? 3001);
 const app = createApp();
 
 app.listen(PORT, () => {
   console.log(`TestAlly server running on port ${PORT}`);
-  const llmBase = getLlmApiBaseUrl();
-  if (llmBase) {
-    console.log(`LLM API base URL: ${llmBase.origin}`);
+  const inferenceBase = getRoleBaseUrl('inference');
+  if (inferenceBase) {
+    console.log(`Inference LLM base URL: ${inferenceBase}`);
   } else {
     console.log(
-      'LLM_API_URL not set — configure LLM_API_URL (and optional LLM_TOKEN) for generation',
+      'Inference LLM not configured — set INFERENCE_LLM_PROVIDER_HOST or CLOUDFEST_HOST',
     );
   }
 });

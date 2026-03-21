@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createModel, getModelName, isProviderConfigured } from '../config.js';
+import { createModel, getModelName, isProviderConfigured, getRoleBaseUrl, getRoleAuthHeaders } from '../config.js';
 
 describe('LLM config', () => {
   const originalEnv = { ...process.env };
@@ -16,6 +16,11 @@ describe('LLM config', () => {
     delete process.env.PLANNING_LLM_PROVIDER_MODEL;
     delete process.env.GENERATION_LLM_PROVIDER_MODEL;
     delete process.env.VALIDATION_LLM_PROVIDER_MODEL;
+    delete process.env.INFERENCE_LLM_PROVIDER;
+    delete process.env.INFERENCE_LLM_PROVIDER_KEY;
+    delete process.env.INFERENCE_LLM_PROVIDER_HOST;
+    delete process.env.INFERENCE_LLM_PROVIDER_MODEL;
+    delete process.env.CLOUDFEST_HOST;
   });
 
   afterEach(() => {
@@ -141,6 +146,54 @@ describe('LLM config', () => {
       expect(planning).toBeDefined();
       expect(generation).toBeDefined();
       expect(validation).toBeDefined();
+    });
+
+    it('creates a model for inference (defaults to cloudfest)', () => {
+      const model = createModel('inference');
+      expect(model).toBeDefined();
+      expect(typeof model.invoke).toBe('function');
+    });
+  });
+
+  describe('getRoleBaseUrl', () => {
+    it('returns cloudfest URL by default for inference', () => {
+      const url = getRoleBaseUrl('inference');
+      expect(url).toContain('172.26.32.29:11435');
+    });
+
+    it('uses CLOUDFEST_HOST env var', () => {
+      process.env.CLOUDFEST_HOST = 'my-host:9999';
+      const url = getRoleBaseUrl('inference');
+      expect(url).toBe('http://my-host:9999/v1');
+    });
+
+    it('uses role-specific host when set', () => {
+      process.env.INFERENCE_LLM_PROVIDER = 'deepseek';
+      process.env.INFERENCE_LLM_PROVIDER_KEY = 'test-key';
+      process.env.INFERENCE_LLM_PROVIDER_HOST = 'https://api.deepseek.com';
+      const url = getRoleBaseUrl('inference');
+      expect(url).toBe('https://api.deepseek.com');
+    });
+
+    it('returns null for non-cloudfest provider without host', () => {
+      process.env.INFERENCE_LLM_PROVIDER = 'anthropic';
+      process.env.INFERENCE_LLM_PROVIDER_KEY = 'test-key';
+      const url = getRoleBaseUrl('inference');
+      expect(url).toBeNull();
+    });
+  });
+
+  describe('getRoleAuthHeaders', () => {
+    it('returns empty headers for cloudfest', () => {
+      const headers = getRoleAuthHeaders('inference');
+      expect(headers).toEqual({});
+    });
+
+    it('returns bearer token when role key is set', () => {
+      process.env.INFERENCE_LLM_PROVIDER = 'deepseek';
+      process.env.INFERENCE_LLM_PROVIDER_KEY = 'sk-test';
+      const headers = getRoleAuthHeaders('inference');
+      expect(headers).toEqual({ Authorization: 'Bearer sk-test' });
     });
   });
 });
