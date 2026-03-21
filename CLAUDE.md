@@ -72,7 +72,7 @@ docs/
 
 ### LLM Configuration
 
-Provider API keys are configured via env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). Model selection and role assignment (generation, validation, planning agent) are decided in code. No runtime failover — prompts are model-specific.
+Each pipeline role (planning, generation, validation, inference) can be independently configured via env vars: `{ROLE}_LLM_PROVIDER`, `{ROLE}_LLM_PROVIDER_KEY`, `{ROLE}_LLM_PROVIDER_HOST`, `{ROLE}_LLM_PROVIDER_MODEL`. Supported providers: `anthropic`, `openai`, `deepseek`, `cloudfest`. Defaults to `cloudfest` (local Ollama at `CLOUDFEST_HOST`). Global fallback keys `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are used when no role-specific key is set. See `.env.example` for the full list.
 
 ### Custom Rules (MVP)
 

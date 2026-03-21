@@ -1,4 +1,4 @@
-import { getLlmApiBaseUrl, getLlmAuthHeaders, resolveLlmUrl } from './llmConfig.js';
+import { getRoleBaseUrl, getRoleAuthHeaders } from './llm/config.js';
 
 const PROBE_MS = Math.min(
   Math.max(Number(process.env.LLM_PROBE_TIMEOUT_MS) || 8_000, 2_000),
@@ -19,19 +19,32 @@ export interface LlmProbeResult {
  * Checks TCP/HTTP reachability and basic API shape — does not run a full chat completion.
  */
 export async function probeLlmConnection(): Promise<LlmProbeResult> {
-  const base = getLlmApiBaseUrl();
-  if (!base) {
+  const baseUrl = getRoleBaseUrl('inference');
+  if (!baseUrl) {
     return {
       ok: false,
       via: 'none',
       latencyMs: 0,
-      message: 'LLM_API_URL is not set',
+      message: 'Inference LLM is not configured',
+    };
+  }
+
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return {
+      ok: false,
+      via: 'none',
+      latencyMs: 0,
+      message: `Invalid inference LLM base URL: ${baseUrl}`,
     };
   }
 
   const started = Date.now();
+  const authHeaders = getRoleAuthHeaders('inference');
 
-  const ollama = await tryOllamaTags(base);
+  const ollama = await tryOllamaTags(base, authHeaders);
   if (ollama) {
     return {
       ok: true,
@@ -42,7 +55,7 @@ export async function probeLlmConnection(): Promise<LlmProbeResult> {
     };
   }
 
-  const openai = await tryOpenAiModels();
+  const openai = await tryOpenAiModels(base, authHeaders);
   if (openai) {
     return {
       ok: true,
@@ -58,16 +71,16 @@ export async function probeLlmConnection(): Promise<LlmProbeResult> {
     via: 'none',
     latencyMs: Date.now() - started,
     message:
-      'Could not reach Ollama (/api/tags) or OpenAI-compatible (/v1/models). Check LLM_API_URL, network (e.g. host.docker.internal), and that the server is running.',
+      'Could not reach Ollama (/api/tags) or OpenAI-compatible (/v1/models). Check INFERENCE_LLM_PROVIDER_HOST / CLOUDFEST_HOST, network, and that the server is running.',
   };
 }
 
-async function tryOllamaTags(base: URL): Promise<{ names: string[] } | null> {
+async function tryOllamaTags(base: URL, authHeaders: Record<string, string>): Promise<{ names: string[] } | null> {
   try {
     const tagsUrl = new URL('/api/tags', `${base.origin}/`);
     const res = await fetch(tagsUrl, {
       method: 'GET',
-      headers: { ...getLlmAuthHeaders() },
+      headers: { ...authHeaders },
       signal: AbortSignal.timeout(PROBE_MS),
     });
     if (!res.ok) return null;
@@ -80,13 +93,12 @@ async function tryOllamaTags(base: URL): Promise<{ names: string[] } | null> {
   }
 }
 
-async function tryOpenAiModels(): Promise<{ ids: string[] } | null> {
+async function tryOpenAiModels(base: URL, authHeaders: Record<string, string>): Promise<{ ids: string[] } | null> {
   try {
-    const url = resolveLlmUrl('v1/models');
-    if (!url) return null;
+    const url = new URL('v1/models', base.href.endsWith('/') ? base.href : `${base.href}/`);
     const res = await fetch(url, {
       method: 'GET',
-      headers: { ...getLlmAuthHeaders() },
+      headers: { ...authHeaders },
       signal: AbortSignal.timeout(PROBE_MS),
     });
     if (!res.ok) return null;

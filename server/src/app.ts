@@ -10,8 +10,7 @@ import {
   createManualTestRouter,
   createHealthRouter,
 } from './routes/index.js';
-import { isLlmConfigured } from './lib/llmConfig.js';
-import { inferComponentFromPaste } from './lib/llmInferComponent.js';
+import { inferComponentFromPaste, isInferenceConfigured } from './lib/llmInferComponent.js';
 import { probeLlmConnection } from './lib/llmProbe.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,11 +31,11 @@ export function createApp(jobManager?: JobManager): express.Express {
 
   /** Active connectivity check: Ollama /api/tags or OpenAI-compatible GET /v1/models */
   app.get('/api/health/llm', async (_req, res) => {
-    if (!isLlmConfigured()) {
+    if (!isInferenceConfigured()) {
       res.status(503).json({
         ok: false,
         via: 'none',
-        message: 'LLM_API_URL is not set',
+        message: 'Inference LLM is not configured',
       });
       return;
     }
@@ -49,7 +48,7 @@ export function createApp(jobManager?: JobManager): express.Express {
   });
 
   /**
-   * LLM-based split + classify for pasted component material (OpenAI-compatible API at LLM_API_URL).
+   * LLM-based split + classify for pasted component material.
    */
   app.post('/api/infer-component', async (req, res) => {
     const raw = typeof req.body?.raw === 'string' ? req.body.raw : '';
@@ -57,10 +56,10 @@ export function createApp(jobManager?: JobManager): express.Express {
       res.status(400).json({ error: 'Bad Request', message: 'raw is required' });
       return;
     }
-    if (!isLlmConfigured()) {
+    if (!isInferenceConfigured()) {
       res.status(503).json({
         error: 'Service Unavailable',
-        message: 'LLM not configured (set LLM_API_URL)',
+        message: 'Inference LLM is not configured',
       });
       return;
     }
