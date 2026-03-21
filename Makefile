@@ -9,13 +9,15 @@ MOUNTS := \
 	-v $(CURDIR)/server/tsconfig.json:/app/server/tsconfig.json:ro \
 	-v $(CURDIR)/vitest.config.ts:/app/vitest.config.ts:ro \
 	-v $(CURDIR)/vitest.e2e.config.ts:/app/vitest.e2e.config.ts:ro \
+	-v $(CURDIR)/vitest.integration.config.ts:/app/vitest.integration.config.ts:ro \
+	-v $(CURDIR)/tests:/app/tests:ro \
 	-v $(CURDIR)/tsconfig.json:/app/tsconfig.json:ro
 
 DEV_RUN := docker run --rm $(MOUNTS) -w /app $(DEV_IMAGE)
 BUILD_RUN := docker run --rm $(MOUNTS) -v $(CURDIR)/build:/app/build -w /app $(DEV_IMAGE)
 
 .PHONY: build build-client build-server dev-image ensure-dev-image \
-	test test-client test-server
+	test test-client test-server test-integration
 
 dev-image:
 	docker build --target deps -t $(DEV_IMAGE) .
@@ -39,3 +41,6 @@ test-client: ensure-dev-image
 
 test-server: ensure-dev-image
 	$(DEV_RUN) npx vitest run --project server
+
+test-integration: ensure-dev-image
+	docker run --rm $(MOUNTS) --env-file $(CURDIR)/.env -w /app $(DEV_IMAGE) npx vitest run --config vitest.integration.config.ts

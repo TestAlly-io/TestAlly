@@ -7,6 +7,9 @@ WORKDIR /app
 
 # ---- Dependencies ----
 FROM base AS deps
+# Native libs required by the canvas npm package (used by axe-core in tests).
+RUN apk add --no-cache build-base g++ cairo-dev pango-dev giflib-dev jpeg-dev librsvg-dev
+ENV FONTCONFIG_FILE=/etc/fonts/fonts.conf
 COPY package*.json ./
 COPY client ./client
 COPY server ./server
@@ -34,12 +37,12 @@ FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV API_PORT=3001
-# OpenAI-compatible API base (host:port or full URL; http:// added at runtime if missing).
-# From inside the container, use the host’s LAN IP, Docker bridge IP, or host.docker.internal — not localhost — if the LLM runs on the machine hosting Docker.
-ENV LLM_API_URL=172.26.32.29:11435
-# Must match a model available on that server (e.g. ollama pull <name>).
-ENV LLM_MODEL=llama3.2
-# LLM_TOKEN: never bake into the image; pass at run time: docker run -e LLM_TOKEN=...
+# Default CloudFest host for the cloudfest provider (Ollama or compatible).
+# From inside the container, use the host’s LAN IP, Docker bridge IP, or
+# host.docker.internal — not localhost — if the LLM runs on the Docker host.
+ENV CLOUDFEST_HOST=172.26.32.29:11435
+# Per-role provider config (PLANNING_LLM_PROVIDER, etc.) and API keys
+# should be passed at run time: docker run -e PLANNING_LLM_PROVIDER_KEY=...
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 

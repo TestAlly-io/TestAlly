@@ -1,7 +1,5 @@
-import { getLlmAuthHeaders, getLlmApiBaseUrl, resolveLlmUrl } from './llmConfig.js';
+import { getModelName, getRoleBaseUrl, getRoleAuthHeaders, isProviderConfigured } from './llm/config.js';
 
-const DEFAULT_MODEL = 'llama3.2';
-const CHAT_PATH = process.env.LLM_CHAT_PATH?.trim() || 'v1/chat/completions';
 const INFER_TIMEOUT_MS = Math.min(
   Math.max(Number(process.env.LLM_INFER_TIMEOUT_MS) || 120_000, 5_000),
   300_000,
@@ -94,18 +92,18 @@ function normalizeResult(raw: Record<string, unknown>): InferComponentResult {
 /**
  * Calls the configured OpenAI-compatible chat API to split prose vs code and infer language + pattern.
  */
+export function isInferenceConfigured(): boolean {
+  return getRoleBaseUrl('inference') !== null;
+}
+
 export async function inferComponentFromPaste(raw: string): Promise<InferComponentResult> {
-  const base = getLlmApiBaseUrl();
-  if (!base) {
-    throw new Error('LLM_API_URL is not set');
+  const baseUrl = getRoleBaseUrl('inference');
+  if (!baseUrl) {
+    throw new Error('Inference LLM is not configured — set INFERENCE_LLM_PROVIDER / CLOUDFEST_HOST');
   }
 
-  const url = resolveLlmUrl(CHAT_PATH);
-  if (!url) {
-    throw new Error('Could not resolve LLM chat URL');
-  }
-
-  const model = process.env.LLM_MODEL?.trim() || DEFAULT_MODEL;
+  const chatUrl = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const model = getModelName('inference');
   const body = {
     model,
     temperature: 0.1,
@@ -122,11 +120,11 @@ export async function inferComponentFromPaste(raw: string): Promise<InferCompone
   const timeout = setTimeout(() => controller.abort(), INFER_TIMEOUT_MS);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(chatUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...getLlmAuthHeaders(),
+        ...getRoleAuthHeaders('inference'),
       },
       body: JSON.stringify(body),
       signal: controller.signal,
