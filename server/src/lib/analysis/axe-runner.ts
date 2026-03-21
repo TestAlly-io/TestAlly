@@ -14,7 +14,7 @@ const FULL_DOC_PREFIX = '<!DOCTYPE html><html lang="en"><head><title>Test</title
 const FULL_DOC_SUFFIX = '</body></html>';
 
 function ensureFullHtmlDocument(html: string): string {
-  if (/<html/i.test(html)) {
+  if (/<html[\s>]/i.test(html)) {
     return html;
   }
   return `${FULL_DOC_PREFIX}${html}${FULL_DOC_SUFFIX}`;
@@ -62,6 +62,8 @@ function mapViolations(
 
 export async function runAxeAnalysis(html: string): Promise<AxeRunnerResult> {
   const documentHtml = ensureFullHtmlDocument(html);
+  // runScripts: 'outside-only' is required so we can eval axe.source into the
+  // jsdom window — axe-core needs a live DOM context to run its checks.
   const dom = new JSDOM(documentHtml, {
     runScripts: 'outside-only',
     pretendToBeVisual: true,
