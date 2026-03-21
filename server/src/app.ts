@@ -11,7 +11,7 @@ import {
   createHealthRouter,
 } from './routes/index.js';
 import { isLlmConfigured } from './lib/llmConfig.js';
-import { inferComponentFromPaste } from './lib/llmInferComponent.js';
+import { inferComponentFromPaste, isInferenceConfigured } from './lib/llmInferComponent.js';
 import { runChatComponentTurn, validateChatComponentBody } from './lib/llmChatComponent.js';
 import { probeLlmConnection } from './lib/llmProbe.js';
 
@@ -33,7 +33,7 @@ export function createApp(jobManager?: JobManager): express.Express {
 
   /** Active connectivity check: Ollama /api/tags or OpenAI-compatible GET /v1/models */
   app.get('/api/health/llm', async (_req, res) => {
-    if (!isLlmConfigured()) {
+    if (!isInferenceConfigured()) {
       res.status(503).json({
         ok: false,
         via: 'none',
@@ -58,7 +58,7 @@ export function createApp(jobManager?: JobManager): express.Express {
       res.status(400).json({ error: 'Bad Request', message: 'raw is required' });
       return;
     }
-    if (!isLlmConfigured()) {
+    if (!isInferenceConfigured()) {
       res.status(503).json({
         error: 'Service Unavailable',
         message: 'LLM not configured — set LLM_API_URL or INFERENCE_LLM_PROVIDER_* / CLOUDFEST_HOST',

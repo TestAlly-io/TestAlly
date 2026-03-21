@@ -1,4 +1,4 @@
-import { getLlmApiBaseUrl, getLlmAuthHeaders, resolveLlmUrl } from './llmConfig.js';
+import { getLlmApiBaseUrl, getLlmAuthHeaders } from './llmConfig.js';
 
 const PROBE_MS = Math.min(
   Math.max(Number(process.env.LLM_PROBE_TIMEOUT_MS) || 8_000, 2_000),
@@ -145,8 +145,9 @@ async function tryOllamaTags(base: URL): Promise<{ names: string[] } | null> {
 
 async function tryOpenAiModels(): Promise<{ ids: string[] } | null> {
   try {
-    const url = resolveLlmUrl('v1/models');
-    if (!url) return null;
+    const base = getLlmApiBaseUrl();
+    if (!base) return null;
+    const url = new URL('v1/models', base.href.endsWith('/') ? base.href : `${base.href}/`);
     const res = await fetch(url, {
       method: 'GET',
       headers: { ...getLlmAuthHeaders() },
