@@ -2,12 +2,27 @@ import { useState, useActionState } from 'react';
 import { submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import { ResultsPanel } from '../components/ResultsPanel';
+import { CodeEditor, type CodeEditorProps } from '../components/CodeEditor';
 import styles from './ClassicWorkspace.module.css';
 
 type ActionState =
   | { status: 'idle' }
   | { status: 'complete'; results: ManualTestResponse }
   | { status: 'error'; message: string };
+
+function toCodeEditorLanguage(lang: AnalyzeRequest['language']): CodeEditorProps['language'] {
+  switch (lang) {
+    case 'jsx':
+      return 'jsx';
+    case 'tsx':
+      return 'tsx';
+    case 'vue':
+    case 'svelte':
+      return 'javascript';
+    default:
+      return 'html';
+  }
+}
 
 function SubmitButton({ isPending, progress }: { isPending: boolean; progress: JobStatus | null }) {
   return (
@@ -26,17 +41,21 @@ function SubmitButton({ isPending, progress }: { isPending: boolean; progress: J
  */
 export function ClassicWorkspace() {
   const [progress, setProgress] = useState<JobStatus | null>(null);
+  const [language, setLanguage] = useState<AnalyzeRequest['language']>('html');
+  const [code, setCode] = useState('');
+  const [css, setCss] = useState('');
+  const [js, setJs] = useState('');
 
   const [state, dispatch, isPending] = useActionState(
     async (_prevState: ActionState, formData: FormData): Promise<ActionState> => {
-      const code = (formData.get('code') as string)?.trim();
-      if (!code) return { status: 'error', message: 'Component code is required' };
+      const codeValue = (formData.get('code') as string)?.trim();
+      if (!codeValue) return { status: 'error', message: 'Component code is required' };
 
       setProgress(null);
 
       try {
         const response = await submitAnalysis({
-          code,
+          code: codeValue,
           language: formData.get('language') as AnalyzeRequest['language'],
           description: (formData.get('description') as string) || undefined,
           css: (formData.get('css') as string) || undefined,
@@ -61,6 +80,11 @@ export function ClassicWorkspace() {
       <form className={styles.inputPanel} action={dispatch}>
         <h2 className={styles.panelTitle}>Component Input</h2>
 
+        {/* CodeMirror editors are not native named fields — mirror values for FormData / useActionState */}
+        <input type="hidden" name="code" value={code} readOnly aria-hidden />
+        <input type="hidden" name="css" value={css} readOnly aria-hidden />
+        <input type="hidden" name="js" value={js} readOnly aria-hidden />
+
         <div className={styles.field}>
           <label htmlFor="classic-language" className={styles.label}>
             Language
@@ -68,7 +92,8 @@ export function ClassicWorkspace() {
           <select
             id="classic-language"
             name="language"
-            defaultValue="html"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as AnalyzeRequest['language'])}
             className={styles.select}
           >
             <option value="html">HTML</option>
@@ -80,17 +105,14 @@ export function ClassicWorkspace() {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="classic-code" className={styles.label}>
-            Component Code <span className={styles.required}>*</span>
-          </label>
-          <textarea
+          <CodeEditor
             id="classic-code"
-            name="code"
-            required
-            className={styles.codeInput}
+            label="Component Code *"
+            value={code}
+            onChange={setCode}
+            language={toCodeEditorLanguage(language)}
             placeholder="Paste your component HTML/JSX here..."
-            rows={12}
-            spellCheck={false}
+            minHeight="280px"
           />
         </div>
 
@@ -108,30 +130,26 @@ export function ClassicWorkspace() {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="classic-css" className={styles.label}>
-            CSS (optional)
-          </label>
-          <textarea
+          <CodeEditor
             id="classic-css"
-            name="css"
-            className={styles.codeInput}
+            label="CSS (optional)"
+            value={css}
+            onChange={setCss}
+            language="css"
             placeholder="Associated CSS styles..."
-            rows={4}
-            spellCheck={false}
+            minHeight="120px"
           />
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="classic-js" className={styles.label}>
-            JavaScript (optional)
-          </label>
-          <textarea
+          <CodeEditor
             id="classic-js"
-            name="js"
-            className={styles.codeInput}
+            label="JavaScript (optional)"
+            value={js}
+            onChange={setJs}
+            language="javascript"
             placeholder="Associated JavaScript..."
-            rows={4}
-            spellCheck={false}
+            minHeight="120px"
           />
         </div>
 
