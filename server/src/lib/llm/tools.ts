@@ -51,7 +51,7 @@ export function createAnalysisTools(input: AnalysisInput) {
 
   const patternTool = tool(
     async () => {
-      const result = detectPattern(input.code, input.description, input.css);
+      const result = detectPattern(input.code, input.description);
       return JSON.stringify(result);
     },
     {

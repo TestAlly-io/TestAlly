@@ -15,7 +15,7 @@ export class AnalyzeRunner implements PhaseRunner<AnalyzeInput, ComponentAnalysi
   async execute(input: AnalyzeInput): Promise<ComponentAnalysis> {
     const { code, description, css } = input.analysisInput;
 
-    const pattern = detectPattern(code, description, css);
+    const pattern = detectPattern(code, description);
     const eventResult = analyzeEvents(code);
     const cssResult = css ? analyzeCss(css) : { flags: [] };
     const ariaResult = analyzeAria(code);

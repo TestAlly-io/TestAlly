@@ -27,10 +27,10 @@ describe('detectPattern', () => {
     expect(result.confidence).toBeGreaterThan(50);
   });
 
-  it('detects dialog from role and aria-modal', () => {
+  it('detects modal from role="dialog" and aria-modal', () => {
     const html = '<div role="dialog" aria-modal="true"><h2>Title</h2></div>';
     const result = detectPattern(html);
-    expect(result.patternType).toBe('dialog');
+    expect(result.patternType).toBe('modal');
   });
 
   it('detects navigation from <nav> element', () => {

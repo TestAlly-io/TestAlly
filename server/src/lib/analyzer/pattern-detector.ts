@@ -25,7 +25,6 @@ interface Signal {
 export function detectPattern(
   html: string,
   description?: string,
-  css?: string,
 ): PatternDetectionResult {
   const signals: Signal[] = [];
 
@@ -34,8 +33,6 @@ export function detectPattern(
   if (description) {
     gatherDescriptionSignals(description, signals);
   }
-
-  gatherClassNameSignals(html, signals);
 
   // Tally scores per pattern
   const scores = new Map<ComponentPatternType, { total: number; signals: string[] }>();
@@ -74,6 +71,7 @@ function gatherHtmlSignals(html: string, signals: Signal[]): void {
   const roles = new Set<string>();
   const tags = new Set<string>();
   const ariaAttrs = new Set<string>();
+  const classNames: string[] = [];
 
   const parser = new htmlparser2.Parser({
     onopentag(name, attribs) {
@@ -88,6 +86,13 @@ function gatherHtmlSignals(html: string, signals: Signal[]): void {
           ariaAttrs.add(attr);
         }
       }
+
+      if (attribs['class']) {
+        classNames.push(...attribs['class'].split(/\s+/));
+      }
+      if (attribs['className']) {
+        classNames.push(...attribs['className'].split(/\s+/));
+      }
     },
   }, { recognizeSelfClosing: true });
 
@@ -99,8 +104,8 @@ function gatherHtmlSignals(html: string, signals: Signal[]): void {
     'tablist': 'tabs',
     'tab': 'tabs',
     'tabpanel': 'tabs',
-    'dialog': 'dialog',
-    'alertdialog': 'dialog',
+    'dialog': 'modal',
+    'alertdialog': 'modal',
     'menu': 'menu',
     'menubar': 'menu',
     'menuitem': 'menu',
@@ -134,7 +139,7 @@ function gatherHtmlSignals(html: string, signals: Signal[]): void {
 
   // Tag-based signals
   if (tags.has('dialog')) {
-    signals.push({ pattern: 'dialog', weight: 35, reason: '<dialog> element' });
+    signals.push({ pattern: 'modal', weight: 35, reason: '<dialog> element' });
   }
   if (tags.has('nav')) {
     signals.push({ pattern: 'navigation', weight: 35, reason: '<nav> element' });
@@ -148,71 +153,54 @@ function gatherHtmlSignals(html: string, signals: Signal[]): void {
   if (tags.has('select')) {
     signals.push({ pattern: 'dropdown', weight: 25, reason: '<select> element' });
   }
-}
 
-function gatherDescriptionSignals(description: string, signals: Signal[]): void {
-  const desc = description.toLowerCase();
+  // Class name signals (single parse, weakest signal)
+  const joined = classNames.join(' ').toLowerCase();
 
-  const descriptionPatterns: Array<{ keywords: string[]; pattern: ComponentPatternType }> = [
-    { keywords: ['accordion'], pattern: 'accordion' },
-    { keywords: ['tab', 'tabs', 'tabbed'], pattern: 'tabs' },
-    { keywords: ['modal', 'dialog', 'popup', 'overlay'], pattern: 'modal' },
-    { keywords: ['dropdown', 'select', 'combobox', 'listbox'], pattern: 'dropdown' },
-    { keywords: ['menu', 'menubar'], pattern: 'menu' },
-    { keywords: ['nav', 'navigation', 'navbar', 'sidebar'], pattern: 'navigation' },
-    { keywords: ['form', 'input', 'login', 'signup', 'register'], pattern: 'form' },
-    { keywords: ['carousel', 'slider', 'slideshow'], pattern: 'carousel' },
-    { keywords: ['tooltip', 'popover'], pattern: 'tooltip' },
-    { keywords: ['toggle', 'switch'], pattern: 'toggle' },
-    { keywords: ['table', 'data grid', 'datagrid'], pattern: 'table' },
-    { keywords: ['tree', 'treeview'], pattern: 'tree' },
-    { keywords: ['alert', 'notification', 'toast', 'banner'], pattern: 'alert' },
+  const classPatterns: Array<{ keywords: RegExp[]; pattern: ComponentPatternType }> = [
+    { keywords: [/\baccordion\b/], pattern: 'accordion' },
+    { keywords: [/\btabs?\b/, /\btabbed\b/], pattern: 'tabs' },
+    { keywords: [/\bmodal\b/, /\bdialog\b/], pattern: 'modal' },
+    { keywords: [/\bdropdown\b/, /\bselect\b/], pattern: 'dropdown' },
+    { keywords: [/\bmenu\b/, /\bnav\b/], pattern: 'menu' },
+    { keywords: [/\bcarousel\b/, /\bslider\b/], pattern: 'carousel' },
+    { keywords: [/\btooltip\b/], pattern: 'tooltip' },
+    { keywords: [/\btoggle\b/, /\bswitch\b/], pattern: 'toggle' },
   ];
 
-  for (const { keywords, pattern } of descriptionPatterns) {
+  for (const { keywords, pattern } of classPatterns) {
     for (const keyword of keywords) {
-      if (desc.includes(keyword)) {
-        signals.push({ pattern, weight: 30, reason: `Description contains "${keyword}"` });
+      if (keyword.test(joined)) {
+        signals.push({ pattern, weight: 15, reason: `CSS class matches ${keyword}` });
         break;
       }
     }
   }
 }
 
-function gatherClassNameSignals(html: string, signals: Signal[]): void {
-  const classNames: string[] = [];
+function gatherDescriptionSignals(description: string, signals: Signal[]): void {
+  const desc = description.toLowerCase();
 
-  const parser = new htmlparser2.Parser({
-    onopentag(_name, attribs) {
-      if (attribs['class']) {
-        classNames.push(...attribs['class'].split(/\s+/));
-      }
-      if (attribs['className']) {
-        classNames.push(...attribs['className'].split(/\s+/));
-      }
-    },
-  }, { recognizeSelfClosing: true });
-
-  parser.write(html);
-  parser.end();
-
-  const joined = classNames.join(' ').toLowerCase();
-
-  const classPatterns: Array<{ keywords: string[]; pattern: ComponentPatternType }> = [
-    { keywords: ['accordion'], pattern: 'accordion' },
-    { keywords: ['tab', 'tabs'], pattern: 'tabs' },
-    { keywords: ['modal', 'dialog'], pattern: 'modal' },
-    { keywords: ['dropdown', 'select'], pattern: 'dropdown' },
-    { keywords: ['menu', 'nav'], pattern: 'menu' },
-    { keywords: ['carousel', 'slider'], pattern: 'carousel' },
-    { keywords: ['tooltip'], pattern: 'tooltip' },
-    { keywords: ['toggle', 'switch'], pattern: 'toggle' },
+  const descriptionPatterns: Array<{ keywords: RegExp[]; pattern: ComponentPatternType }> = [
+    { keywords: [/\baccordion\b/], pattern: 'accordion' },
+    { keywords: [/\btabs?\b/, /\btabbed\b/], pattern: 'tabs' },
+    { keywords: [/\bmodal\b/, /\bdialog\b/, /\bpopup\b/, /\boverlay\b/], pattern: 'modal' },
+    { keywords: [/\bdropdown\b/, /\bselect\b/, /\bcombobox\b/, /\blistbox\b/], pattern: 'dropdown' },
+    { keywords: [/\bmenu\b/, /\bmenubar\b/], pattern: 'menu' },
+    { keywords: [/\bnav\b/, /\bnavigation\b/, /\bnavbar\b/, /\bsidebar\b/], pattern: 'navigation' },
+    { keywords: [/\bform\b/, /\blogin\b/, /\bsignup\b/, /\bregister\b/], pattern: 'form' },
+    { keywords: [/\bcarousel\b/, /\bslider\b/, /\bslideshow\b/], pattern: 'carousel' },
+    { keywords: [/\btooltip\b/, /\bpopover\b/], pattern: 'tooltip' },
+    { keywords: [/\btoggle\b/, /\bswitch\b/], pattern: 'toggle' },
+    { keywords: [/\btable\b/, /\bdata grid\b/, /\bdatagrid\b/], pattern: 'table' },
+    { keywords: [/\btree\b/, /\btreeview\b/], pattern: 'tree' },
+    { keywords: [/\balert\b/, /\bnotification\b/, /\btoast\b/, /\bbanner\b/], pattern: 'alert' },
   ];
 
-  for (const { keywords, pattern } of classPatterns) {
+  for (const { keywords, pattern } of descriptionPatterns) {
     for (const keyword of keywords) {
-      if (joined.includes(keyword)) {
-        signals.push({ pattern, weight: 15, reason: `CSS class contains "${keyword}"` });
+      if (keyword.test(desc)) {
+        signals.push({ pattern, weight: 30, reason: `Description matches ${keyword}` });
         break;
       }
     }
