@@ -10,9 +10,7 @@ FROM base AS deps
 COPY package*.json ./
 COPY client ./client
 COPY server ./server
-# canvas is a test-only devDep requiring native libs (Cairo, Pango, etc.).
-# Strip it before install so we don't need build toolchains in the image.
-RUN cd server && npm pkg delete devDependencies.canvas && cd /app && npm install
+RUN npm install
 
 # ---- Build client ----
 # Bump or pass --build-arg CACHEBUST=$(date +%s) if the UI in the image looks stale.
