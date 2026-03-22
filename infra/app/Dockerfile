@@ -27,9 +27,9 @@ ENV NODE_ENV=production
 ENV PORT=8080
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN npm install -g serve
 
 COPY --from=builder /app/build/client ./build/client
+RUN npm install serve
 
 USER appuser
 EXPOSE 8080
@@ -37,4 +37,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/ || exit 1
 
-CMD serve -s build/client -l ${PORT}
+CMD ["sh", "-c", "npx serve -s build/client -l $PORT"]

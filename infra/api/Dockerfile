@@ -43,6 +43,8 @@ COPY package*.json ./
 COPY --from=builder /app/build/server ./build/server
 COPY server/package*.json ./server/
 COPY server/src/lib/wcag/data ./build/server/lib/wcag/data
+# health.ts resolves ../../package.json relative to build/server/routes/
+COPY package.json ./build/package.json
 
 USER appuser
 EXPOSE 8080
@@ -50,4 +52,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/api/health || exit 1
 
-CMD node build/server/index.js
+CMD ["sh", "-c", "exec node build/server/index.js"]
