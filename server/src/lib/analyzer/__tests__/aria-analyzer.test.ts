@@ -96,4 +96,29 @@ describe('analyzeAria', () => {
     expect(dialog).toBeDefined();
     expect(dialog?.line).toBe(4);
   });
+
+  it('requires either aria-label or aria-labelledby for dialog', async () => {
+    const html = '<div role="dialog">No label</div>';
+    const result = await analyzeAria(html);
+    const concern = result.findings.find((f) =>
+      f.concern?.includes('aria-label or aria-labelledby'),
+    );
+    expect(concern).toBeDefined();
+  });
+
+  it('accepts dialog with aria-label', async () => {
+    const html = '<div role="dialog" aria-label="Settings">Content</div>';
+    const result = await analyzeAria(html);
+    const concern = result.findings.find((f) =>
+      f.concern?.includes('requires aria-label or aria-labelledby'),
+    );
+    expect(concern).toBeUndefined();
+  });
+
+  it('flags aria-label on generic elements without role', async () => {
+    const html = '<div aria-label="info">Content</div>';
+    const result = await analyzeAria(html);
+    const concern = result.findings.find((f) => f.concern?.includes('aria-label on <div>'));
+    expect(concern).toBeDefined();
+  });
 });

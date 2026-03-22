@@ -1,6 +1,18 @@
 import * as htmlparser2 from 'htmlparser2';
 import type { AriaFinding, SourceLanguage } from '../../types/analysis.js';
 import { runEslintAnalysis } from '../analysis/eslint-runner.js';
+import { elementRoles } from 'aria-query';
+/** Elements that inherently lack semantic roles and generally have no effect when given aria-label */
+const GENERIC_ELEMENTS = new Set<string>(
+  Array.from(elementRoles.entries())
+    .filter(([concept, roleSet]) => {
+      const isGeneric = Array.from(roleSet).some((r) => r === 'generic' || r === 'presentation');
+      // Exclude elements that elevate strictly based on attributes (e.g., <section aria-label="...">)
+      // or that are intrinsically interactive/linkable.
+      return isGeneric && !concept.attributes && !['a', 'area', 'aside', 'footer', 'header', 'section'].includes(concept.name);
+    })
+    .map(([concept]) => (concept).name),
+);
 
 export interface AriaAnalysisResult {
   findings: AriaFinding[];
@@ -33,7 +45,8 @@ function getLineFromPos(lineStarts: number[], pos: number): number {
 
 /**
  * Analyze HTML/JSX source for ARIA role and attribute usage.
- * Uses htmlparser2 for extraction and eslint-plugin-jsx-a11y for validation.
+ * Validation is heavily backed by the eslint-plugin-jsx-a11y ruleset, extended
+ * with custom checks
  */
 export async function analyzeAria(
   sourceCode: string,
@@ -51,7 +64,7 @@ export async function analyzeAria(
     {
       onopentag(name, attribs) {
         const role = attribs['role'];
-        
+
         const ariaEntries = Object.entries(attribs).filter(([key]) => key.startsWith('aria-'));
         const ariaAttrs = Object.fromEntries(ariaEntries);
         ariaAttributeCount += ariaEntries.length;
@@ -124,9 +137,40 @@ export async function analyzeAria(
       };
     });
 
+  // Custom validations for rules not strictly enforced by eslint-plugin-jsx-a11y
+  const customFindings: AriaFinding[] = allRecords.flatMap((record) => {
+    const custom: AriaFinding[] = [];
+
+    // 1. Dialogs should have an accessible name
+    if (record.role === 'dialog' && !record.attributes['aria-label'] && !record.attributes['aria-labelledby']) {
+      custom.push({
+        role: 'dialog',
+        attributes: record.attributes,
+        element: record.html,
+        concern: 'role="dialog" requires aria-label or aria-labelledby',
+        line: record.line,
+      });
+    }
+
+    // 2. Generic elements shouldn't have aria-label without a role
+    if (record.attributes['aria-label'] && GENERIC_ELEMENTS.has(record.name) && !record.role) {
+      custom.push({
+        role: undefined,
+        attributes: record.attributes,
+        element: record.html,
+        concern: `aria-label on <${record.name}> without a role — most screen readers will ignore this. Add an appropriate role or use a semantic element.`,
+        line: record.line,
+      });
+    }
+
+    return custom;
+  });
+
+  const allIssueFindings = [...issueFindings, ...customFindings];
+
   // Record non-concern findings for context (role usage without issues)
   const nonConcernFindings: AriaFinding[] = allRecords
-    .filter((record) => record.role && !issueFindings.some((f) => f.line === record.line && f.element === record.html))
+    .filter((record) => record.role && !allIssueFindings.some((f) => f.line === record.line && f.element === record.html))
     .map((record) => ({
       role: record.role,
       attributes: record.attributes,
@@ -134,7 +178,7 @@ export async function analyzeAria(
       line: record.line,
     }));
 
-  findings.push(...issueFindings, ...nonConcernFindings);
+  findings.push(...allIssueFindings, ...nonConcernFindings);
 
   return { findings, roles: Array.from(roles), ariaAttributeCount };
 }
