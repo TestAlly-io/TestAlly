@@ -32,8 +32,16 @@ RUN npm install --omit=dev
 # ---- Runner ----
 FROM node:24-alpine AS runner
 WORKDIR /app
+
+# mode: "client" or "server"
+ARG mode=server
+ENV APP_MODE=${mode}
+
+# APP_PORT controls which port is exposed and used at runtime
+ARG APP_PORT=3001
+ENV APP_PORT=${APP_PORT}
+
 ENV NODE_ENV=production
-ENV API_PORT=3001
 # Default CloudFest host for the cloudfest provider (Ollama or compatible).
 # From inside the container, use the host’s LAN IP, Docker bridge IP, or
 # host.docker.internal — not localhost — if the LLM runs on the Docker host.
@@ -43,17 +51,28 @@ ENV CLOUDFEST_HOST=172.26.32.29:11435
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
+# Common files
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=server-builder /app/build/server ./build/server
-COPY --from=client-builder /app/build/client ./build/client
 COPY package*.json ./
+
+# Server-mode files
+COPY --from=server-builder /app/build/server ./build/server
 COPY server/package*.json ./server/
 COPY server/src/lib/wcag/data ./build/server/lib/wcag/data
 
+# Client-mode files
+COPY --from=client-builder /app/build/client ./build/client
+
 USER appuser
-EXPOSE 3001
+EXPOSE ${APP_PORT}
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${APP_PORT}/api/health || exit 1
 
-CMD ["node", "build/server/index.js"]
+# Client mode: serve static files with a lightweight server
+# Server mode: run the Express app
+CMD if [ "$APP_MODE" = "client" ]; then \
+      npx serve -s build/client -l ${APP_PORT}; \
+    else \
+      node build/server/index.js; \
+    fi

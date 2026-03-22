@@ -1,7 +1,7 @@
 import { createApp } from './app.js';
 import { getLlmApiBaseUrl } from './lib/llmConfig.js';
 
-const PORT = Number(process.env.API_PORT ?? 3001);
+const PORT = Number(process.env.APP_PORT ?? process.env.API_PORT ?? 3001);
 const app = createApp();
 
 const server = app.listen(PORT, () => {
