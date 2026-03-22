@@ -42,10 +42,11 @@ function buildResult(ctx: MachineContext): AnalysisResult {
     },
     manualTests: ctx.generatedTests ?? [],
     allClear:
+      ctx.lintResult !== undefined &&
       (ctx.generatedTests?.length ?? 0) === 0 &&
-      (ctx.lintResult?.axeViolations.length ?? 0) === 0 &&
-      (ctx.lintResult?.eslintMessages.length ?? 0) === 0 &&
-      (ctx.lintResult?.customRuleFlags.length ?? 0) === 0,
+      ctx.lintResult.axeViolations.length === 0 &&
+      ctx.lintResult.eslintMessages.length === 0 &&
+      ctx.lintResult.customRuleFlags.length === 0,
     summary: '',
   };
 }

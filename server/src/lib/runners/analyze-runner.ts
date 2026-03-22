@@ -17,7 +17,7 @@ export class AnalyzeRunner implements PhaseRunner<AnalyzeInput, ComponentAnalysi
 
     const pattern = detectPattern(code, description, css);
     const eventResult = analyzeEvents(code);
-    const cssResult = css ? analyzeCss(css) : { flags: [], hasAnimations: false, hasReducedMotionQuery: false };
+    const cssResult = css ? analyzeCss(css) : { flags: [] };
     const ariaResult = analyzeAria(code);
 
     return {

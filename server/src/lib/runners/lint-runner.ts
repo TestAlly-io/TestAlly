@@ -13,11 +13,11 @@ export class LintRunner implements PhaseRunner<LintInput, AutomatedResults> {
   async execute(input: LintInput): Promise<AutomatedResults> {
     const { code, language, css, js } = input.analysisInput;
 
-    const [axeResult, eslintMessages, customRuleFlags] = await Promise.all([
+    const [axeResult, eslintMessages] = await Promise.all([
       runAxeAnalysis(code),
       runEslintAnalysis(code, language),
-      Promise.resolve(runCustomRules(code, css, js)),
     ]);
+    const customRuleFlags = runCustomRules(code, css, js);
 
     return {
       axeViolations: axeResult.violations,
