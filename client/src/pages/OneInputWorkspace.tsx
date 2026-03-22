@@ -137,20 +137,18 @@ export function OneInputWorkspace() {
           and a testing angle when you run Analyze.
         </p>
 
-        <div className={styles.field}>
-          <label htmlFor="paste" className={styles.label}>
-            Component Code
-          </label>
-          <textarea
-            id="paste"
-            className={styles.codeInput}
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            placeholder={PLACEHOLDER}
-            spellCheck={false}
-            style={{ minHeight: '250px' }}
-          />
-        </div>
+        <label htmlFor="paste" className={styles.visuallyHidden}>
+          Component source code
+        </label>
+        <textarea
+          id="paste"
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+          className={styles.codeInput}
+          placeholder={PLACEHOLDER}
+          rows={16}
+          spellCheck={false}
+        />
 
         <div className={styles.meta} aria-live="polite">
           Guessed language (offline): <strong>{heuristic.language}</strong>

@@ -4,7 +4,6 @@ MOUNTS := \
 	-v $(CURDIR)/client/src:/app/client/src:ro \
 	-v $(CURDIR)/client/index.html:/app/client/index.html:ro \
 	-v $(CURDIR)/client/tsconfig.json:/app/client/tsconfig.json:ro \
-	-v $(CURDIR)/client/tsconfig.build.json:/app/client/tsconfig.build.json:ro \
 	-v $(CURDIR)/client/vite.config.ts:/app/client/vite.config.ts:ro \
 	-v $(CURDIR)/server/src:/app/server/src:ro \
 	-v $(CURDIR)/server/tsconfig.json:/app/server/tsconfig.json:ro \

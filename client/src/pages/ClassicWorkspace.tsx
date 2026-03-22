@@ -26,21 +26,17 @@ function SubmitButton({ isPending, progress }: { isPending: boolean; progress: J
  */
 export function ClassicWorkspace() {
   const [progress, setProgress] = useState<JobStatus | null>(null);
-  const [language, setLanguage] = useState<AnalyzeRequest['language']>('html');
-  const [code, setCode] = useState('');
-  const [css, setCss] = useState('');
-  const [js, setJs] = useState('');
 
   const [state, dispatch, isPending] = useActionState(
     async (_prevState: ActionState, formData: FormData): Promise<ActionState> => {
-      const codeValue = (formData.get('code') as string)?.trim();
-      if (!codeValue) return { status: 'error', message: 'Component code is required' };
+      const code = (formData.get('code') as string)?.trim();
+      if (!code) return { status: 'error', message: 'Component code is required' };
 
       setProgress(null);
 
       try {
         const response = await submitAnalysis({
-          code: codeValue,
+          code,
           language: formData.get('language') as AnalyzeRequest['language'],
           description: (formData.get('description') as string) || undefined,
           css: (formData.get('css') as string) || undefined,
@@ -72,8 +68,7 @@ export function ClassicWorkspace() {
           <select
             id="classic-language"
             name="language"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as AnalyzeRequest['language'])}
+            defaultValue="html"
             className={styles.select}
           >
             <option value="html">HTML</option>
@@ -86,19 +81,16 @@ export function ClassicWorkspace() {
 
         <div className={styles.field}>
           <label htmlFor="classic-code" className={styles.label}>
-            Component Code <span className={styles.required} aria-hidden="true">*</span>
+            Component Code <span className={styles.required}>*</span>
           </label>
           <textarea
             id="classic-code"
             name="code"
-            className={styles.codeInput}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Paste your component HTML/JSX here..."
             required
-            aria-required="true"
+            className={styles.codeInput}
+            placeholder="Paste your component HTML/JSX here..."
+            rows={12}
             spellCheck={false}
-            style={{ minHeight: '280px' }}
           />
         </div>
 
@@ -123,11 +115,9 @@ export function ClassicWorkspace() {
             id="classic-css"
             name="css"
             className={styles.codeInput}
-            value={css}
-            onChange={(e) => setCss(e.target.value)}
             placeholder="Associated CSS styles..."
+            rows={4}
             spellCheck={false}
-            style={{ minHeight: '120px' }}
           />
         </div>
 
@@ -139,11 +129,9 @@ export function ClassicWorkspace() {
             id="classic-js"
             name="js"
             className={styles.codeInput}
-            value={js}
-            onChange={(e) => setJs(e.target.value)}
             placeholder="Associated JavaScript..."
+            rows={4}
             spellCheck={false}
-            style={{ minHeight: '120px' }}
           />
         </div>
 
