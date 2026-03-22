@@ -20,6 +20,7 @@ export class StubGenerateValidateRunner
   async execute(_input: GenerateValidateInput): Promise<GenerateValidateOutput> {
     return {
       generatedTests: [],
+      summary: '',
       validation: { confidence: 100, passed: true },
       iterationCount: 0,
     };

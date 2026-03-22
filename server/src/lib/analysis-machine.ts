@@ -1,6 +1,6 @@
 import { setup, assign, fromPromise } from 'xstate';
 import type { AnalysisInput, AutomatedResults, ComponentAnalysis } from '../types/analysis.js';
-import type { ManualTest } from '../types/ittt.js';
+import type { ManualTest, WalkthroughResources } from '../types/ittt.js';
 import type { JobError, PipelinePhase } from '../types/job.js';
 import type { PhaseRunner } from './phase-runner.js';
 import type { LintInput } from './runners/lint-runner.js';
@@ -10,9 +10,9 @@ import type {
   GenerateValidateOutput,
 } from './runners/generate-validate-runner.js';
 
-export const MAX_ITERATIONS = 5;
+export const MAX_ITERATIONS = 2;
 
-export const DEFAULT_CONFIDENCE_THRESHOLD = 95;
+export const DEFAULT_CONFIDENCE_THRESHOLD = 70;
 
 export function getConfidenceThreshold(): number {
   const raw = process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD;
@@ -34,6 +34,8 @@ export interface MachineContext {
   lintResult: AutomatedResults | null;
   analysisResult: ComponentAnalysis | null;
   generatedTests: ManualTest[] | null;
+  generatedSummary: string;
+  generatedResources?: WalkthroughResources;
   validationResult: GenerateValidateOutput['validation'] | null;
   iterationCount: number;
   errors: JobError[];
@@ -86,6 +88,8 @@ const analysisMachine = setup({
     lintResult: null,
     analysisResult: null,
     generatedTests: null,
+    generatedSummary: '',
+    generatedResources: undefined,
     validationResult: null,
     iterationCount: 0,
     errors: [],
@@ -148,6 +152,8 @@ const analysisMachine = setup({
           target: 'COMPLETE',
           actions: assign(({ event }) => ({
             generatedTests: event.output.generatedTests,
+            generatedSummary: event.output.summary,
+            generatedResources: event.output.resources,
             validationResult: event.output.validation,
             iterationCount: event.output.iterationCount,
           })),

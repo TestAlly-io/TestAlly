@@ -36,6 +36,7 @@ function makeRunners(overrides?: Partial<PipelineRunners>): PipelineRunners {
     generateValidate: {
       execute: async (): Promise<GenerateValidateOutput> => ({
         generatedTests: [],
+        summary: '',
         validation: { confidence: 98, passed: true },
         iterationCount: 0,
       }),
@@ -103,6 +104,7 @@ describe('analysisMachine', () => {
         generateValidate: {
           execute: async (): Promise<GenerateValidateOutput> => ({
             generatedTests: [],
+            summary: '',
             validation: { confidence: 72, passed: false, feedback: 'needs work' },
             iterationCount: 3,
           }),

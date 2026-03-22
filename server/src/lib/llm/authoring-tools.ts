@@ -20,13 +20,33 @@ export interface AuthoringToolsContext {
   currentWalkthrough: AnalysisResult | null;
   /** Mutable state: the latest validation result. */
   currentValidation: ValidationResult | null;
-  /** Mutable iteration counter. */
+  /** Mutable iteration counter (incremented per generate_walkthrough call). */
   iterationCount: number;
+  /** Hard caps — whichever fires first stops further tool calls. */
+  maxIterations: number;
+  confidenceThreshold: number;
+}
+
+function isDone(ctx: AuthoringToolsContext): boolean {
+  return (
+    ctx.iterationCount >= ctx.maxIterations ||
+    (ctx.currentValidation !== null &&
+      ctx.currentValidation.confidence >= ctx.confidenceThreshold)
+  );
+}
+
+function doneMessage(ctx: AuthoringToolsContext): string {
+  const reason = ctx.iterationCount >= ctx.maxIterations
+    ? `max iterations reached (${ctx.iterationCount}/${ctx.maxIterations})`
+    : `confidence threshold met (${ctx.currentValidation!.confidence} >= ${ctx.confidenceThreshold})`;
+  return JSON.stringify({ done: true, reason });
 }
 
 export function createAuthoringTools(ctx: AuthoringToolsContext) {
   const generateTool = tool(
     async () => {
+      if (isDone(ctx)) return doneMessage(ctx);
+
       const analysisResults = JSON.stringify(ctx.analysisResult);
       const componentType = ctx.analysisResult.patternType;
       const description = ctx.analysisInput.description ?? componentType;
@@ -63,6 +83,11 @@ export function createAuthoringTools(ctx: AuthoringToolsContext) {
         return JSON.stringify({ error: 'No walkthrough generated yet. Call generate_walkthrough first.' });
       }
 
+      // If we already passed the threshold, return the cached result
+      if (ctx.currentValidation && ctx.currentValidation.confidence >= ctx.confidenceThreshold) {
+        return doneMessage(ctx);
+      }
+
       const analysisResults = JSON.stringify(ctx.analysisResult);
       const componentType = ctx.analysisResult.patternType;
 
@@ -75,9 +100,13 @@ export function createAuthoringTools(ctx: AuthoringToolsContext) {
 
       ctx.currentValidation = result;
 
+      // Tell the agent whether it should stop
+      const shouldStop = isDone(ctx);
+
       return JSON.stringify({
         confidence: result.confidence,
-        shouldLoop: result.shouldLoop,
+        shouldLoop: !shouldStop && result.shouldLoop,
+        shouldStop,
         issueCount: result.issues.length,
         issues: result.issues,
         missingTests: result.missingTests,
@@ -96,6 +125,7 @@ export function createAuthoringTools(ctx: AuthoringToolsContext) {
 
   const reviseSectionTool = tool(
     async ({ testId, issue, suggestion }) => {
+      if (isDone(ctx)) return doneMessage(ctx);
       if (!ctx.currentWalkthrough) {
         return JSON.stringify({ error: 'No walkthrough to revise. Call generate_walkthrough first.' });
       }
@@ -150,6 +180,7 @@ export function createAuthoringTools(ctx: AuthoringToolsContext) {
 
   const addMissingTestTool = tool(
     async ({ wcagCriteria, description, reason, componentType }) => {
+      if (isDone(ctx)) return doneMessage(ctx);
       if (!ctx.currentWalkthrough) {
         return JSON.stringify({ error: 'No walkthrough to add to. Call generate_walkthrough first.' });
       }

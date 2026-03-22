@@ -39,13 +39,14 @@ function buildResult(ctx: MachineContext): AnalysisResult {
       customRuleFlags: [],
     },
     manualTests: ctx.generatedTests ?? [],
+    ...(ctx.generatedResources && { resources: ctx.generatedResources }),
     allClear:
       ctx.lintResult !== null &&
       (ctx.generatedTests?.length ?? 0) === 0 &&
       ctx.lintResult.axeViolations.length === 0 &&
       ctx.lintResult.eslintMessages.length === 0 &&
       ctx.lintResult.customRuleFlags.length === 0,
-    summary: '',
+    summary: ctx.generatedSummary || '',
   };
 }
 

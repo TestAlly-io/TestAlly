@@ -45,6 +45,7 @@ function makeManager(overrides?: Partial<PipelineRunners>): JobManager {
     generateValidate: {
       execute: async (): Promise<GenerateValidateOutput> => ({
         generatedTests: [],
+        summary: '',
         validation: { confidence: 98, passed: true },
         iterationCount: 0,
       }),
@@ -126,7 +127,7 @@ describe('JobManager', () => {
           gate: () => false, // gate blocks LINT
         },
         analyze: { execute: async () => ({ patternType: 'unknown', patternConfidence: 0, events: [], cssFlags: [], ariaFindings: [] }) },
-        generateValidate: { execute: async () => ({ generatedTests: [], validation: { confidence: 100, passed: true }, iterationCount: 0 }) },
+        generateValidate: { execute: async () => ({ generatedTests: [], summary: '', validation: { confidence: 100, passed: true }, iterationCount: 0 }) },
       });
 
       const job = manager.createJob(sampleInput)!;
@@ -146,6 +147,7 @@ describe('JobManager', () => {
             generatedTests: [
               { id: 'test-1', title: 'Focus test', wcagCriteria: ['2.4.7'], priority: 'critical', steps: [{ action: 'Tab', expected: 'Focus ring', ifFail: 'No focus' }], sources: [] },
             ],
+            summary: '',
             validation: { confidence: 96, passed: true },
             iterationCount: 2,
           }),

@@ -20,6 +20,8 @@ describe('authoring-tools module', () => {
       currentWalkthrough: null,
       currentValidation: null,
       iterationCount: 0,
+      maxIterations: 2,
+      confidenceThreshold: 70,
     });
     expect(tools).toHaveLength(5);
   });
@@ -38,6 +40,8 @@ describe('authoring-tools module', () => {
       currentWalkthrough: null,
       currentValidation: null,
       iterationCount: 0,
+      maxIterations: 2,
+      confidenceThreshold: 70,
     });
 
     const names = tools.map((t) => t.name);

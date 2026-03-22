@@ -90,6 +90,7 @@ describe('agentic GENERATE_VALIDATE phase (integration)', () => {
       makeRunners({
         execute: async (): Promise<GenerateValidateOutput> => ({
           generatedTests: [makeTest()],
+          summary: '',
           validation: { confidence: 97, passed: true },
           iterationCount: 1,
         }),
@@ -114,6 +115,7 @@ describe('agentic GENERATE_VALIDATE phase (integration)', () => {
             makeTest(),
             makeTest({ id: 'test-keyboard-activation', title: 'Keyboard activation' }),
           ],
+          summary: '',
           validation: { confidence: 96, passed: true },
           iterationCount: 3,
         }),
@@ -133,6 +135,7 @@ describe('agentic GENERATE_VALIDATE phase (integration)', () => {
       makeRunners({
         execute: async (): Promise<GenerateValidateOutput> => ({
           generatedTests: [makeTest()],
+          summary: '',
           validation: { confidence: 60, passed: false, feedback: 'Still needs improvement' },
           iterationCount: 5,
         }),
@@ -176,6 +179,7 @@ describe('agentic GENERATE_VALIDATE phase (integration)', () => {
             makeTest({ id: 'test-keyboard', title: 'Keyboard activation', wcagCriteria: ['2.1.1'] }),
             makeTest({ id: 'test-sr', title: 'Screen reader announcement', wcagCriteria: ['4.1.2'] }),
           ],
+          summary: '',
           validation: { confidence: 97, passed: true },
           iterationCount: 3,
         }),
@@ -218,6 +222,7 @@ describe('agentic GENERATE_VALIDATE phase (integration)', () => {
     // Complete the runner
     resolveRunner!({
       generatedTests: [makeTest()],
+      summary: '',
       validation: { confidence: 98, passed: true },
       iterationCount: 1,
     });

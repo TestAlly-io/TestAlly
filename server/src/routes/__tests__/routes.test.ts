@@ -54,6 +54,7 @@ const defaultRunners = () => ({
   generateValidate: {
     execute: async (): Promise<GenerateValidateOutput> => ({
       generatedTests: [],
+      summary: '',
       validation: { confidence: 98, passed: true },
       iterationCount: 0,
     }),

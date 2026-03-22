@@ -6,19 +6,18 @@ You have tools to generate, validate, and refine walkthroughs. Your goal is to p
 
 1. **Generate**: Call \`generate_walkthrough\` to produce the initial walkthrough.
 2. **Validate**: Call \`validate_walkthrough\` to check quality and get a confidence score.
-3. **Iterate if needed**: If confidence is below {confidenceThreshold}:
-   - Review the validation issues and missing tests.
-   - Use \`revise_section\` to fix specific tests that have issues.
-   - Use \`add_missing_test\` to fill coverage gaps.
-   - Use \`query_wcag_criteria\` if you need to look up WCAG requirements.
-   - After making changes, call \`validate_walkthrough\` again.
-4. **Stop**: Once confidence meets the threshold, or you have completed {maxIterations} generate-validate cycles, stop and report your final result.
+3. **Iterate only if confidence is very low** (below 50):
+   - Use \`revise_section\` to fix at most 2 specific tests (the worst issues).
+   - Use \`add_missing_test\` only if validation explicitly reports a critical gap.
+   - Then call \`validate_walkthrough\` once more and **stop**.
+4. **Stop**: Accept the result once you have validated. Do NOT keep looping to chase a perfect score. A confidence of 70+ is acceptable. You have a hard limit of {maxIterations} generate calls.
 
-## Strategy
+## Limits
 
-- Prefer surgical fixes (\`revise_section\`, \`add_missing_test\`) over full regeneration when only a few issues exist.
-- Only call \`generate_walkthrough\` again if the walkthrough needs fundamental restructuring.
-- Each \`generate_walkthrough\` call counts as one iteration toward the max of {maxIterations}.
+- **Maximum total tool calls**: 8. After 8 tool calls, stop immediately and report your result.
+- **Maximum generate_walkthrough calls**: {maxIterations}. Prefer one.
+- **Maximum validate_walkthrough calls**: 2. One initial, one after revisions if needed.
+- Do NOT call revise_section or add_missing_test more than 2 times total.
 
 ## Final Output
 

@@ -1,6 +1,6 @@
 import { createAgent } from 'langchain';
 import type { AnalysisInput, ComponentAnalysis } from '../../types/analysis.js';
-import type { ManualTest } from '../../types/ittt.js';
+import type { ManualTest, WalkthroughResources } from '../../types/ittt.js';
 import { createModel } from './config.js';
 import { createAuthoringTools, type AuthoringToolsContext } from './authoring-tools.js';
 import { getTracingCallbacks, flushTracing } from './tracing.js';
@@ -17,6 +17,8 @@ export interface GenerateValidateInput {
 
 export interface GenerateValidateOutput {
   generatedTests: ManualTest[];
+  summary: string;
+  resources?: WalkthroughResources;
   validation: {
     confidence: number;
     passed: boolean;
@@ -37,6 +39,8 @@ export async function runAuthoringAgent(
     currentWalkthrough: null,
     currentValidation: null,
     iterationCount: 0,
+    maxIterations: MAX_ITERATIONS,
+    confidenceThreshold,
   };
 
   const tools = createAuthoringTools(toolsContext);
@@ -68,10 +72,17 @@ export async function runAuthoringAgent(
     },
   });
 
+  // Each tool call uses ~2 recursion steps (agent→tool). With a max of 8 tool calls
+  // plus the final agent response, 25 is enough but we set 30 for safety.
+  const invokeConfig = {
+    ...tracingConfig,
+    recursionLimit: 30,
+  };
+
   try {
     await agent.invoke(
       { messages: [{ role: 'user', content: userMessage }] },
-      tracingConfig,
+      invokeConfig,
     );
   } catch (err) {
     // If the agent fails but we have partial results, return them
@@ -93,6 +104,8 @@ export async function runAuthoringAgent(
 
   return {
     generatedTests: toolsContext.currentWalkthrough.manualTests,
+    summary: toolsContext.currentWalkthrough.summary ?? '',
+    resources: toolsContext.currentWalkthrough.resources,
     validation: {
       confidence,
       passed: confidence >= confidenceThreshold,
