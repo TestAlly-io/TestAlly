@@ -40,11 +40,19 @@ const FALLBACK_RESULT: ValidationResult = {
   feedback: 'Validation could not be completed — returning low-confidence fallback.',
 };
 
+export interface ValidationOptions {
+  /** Current iteration in the GENERATE↔VALIDATE loop (0 = first pass). */
+  iteration?: number;
+}
+
 export async function validateWalkthrough(
   walkthrough: AnalysisResult,
   analysisResults: string,
   componentType: string,
+  options?: ValidationOptions,
 ): Promise<ValidationResult> {
+  const iteration = options?.iteration ?? 0;
+
   let model;
   try {
     model = createModel('validation');
@@ -59,9 +67,9 @@ export async function validateWalkthrough(
     .replace('{validationSchema}', JSON.stringify(VALIDATION_SCHEMA, null, 2));
 
   const tracingConfig = getTracingCallbacks({
-    runName: 'walkthrough-validation',
-    tags: ['validation', componentType],
-    metadata: { componentType, attempt: 0 },
+    runName: `walkthrough-validation${iteration > 0 ? ` [iteration ${iteration}]` : ''}`,
+    tags: ['validation', componentType, ...(iteration > 0 ? [`iteration-${iteration}`] : [])],
+    metadata: { componentType, attempt: 0, iteration },
   });
 
   let lastError: Error | null = null;

@@ -20,6 +20,10 @@ describe('LLM config', () => {
     delete process.env.INFERENCE_LLM_PROVIDER_KEY;
     delete process.env.INFERENCE_LLM_PROVIDER_HOST;
     delete process.env.INFERENCE_LLM_PROVIDER_MODEL;
+    delete process.env.AUTHORING_LLM_PROVIDER;
+    delete process.env.AUTHORING_LLM_PROVIDER_KEY;
+    delete process.env.AUTHORING_LLM_PROVIDER_HOST;
+    delete process.env.AUTHORING_LLM_PROVIDER_MODEL;
     delete process.env.CLOUDFEST_HOST;
   });
 
@@ -150,6 +154,12 @@ describe('LLM config', () => {
 
     it('creates a model for inference (defaults to cloudfest)', () => {
       const model = createModel('inference');
+      expect(model).toBeDefined();
+      expect(typeof model.invoke).toBe('function');
+    });
+
+    it('creates a model for authoring (defaults to cloudfest)', () => {
+      const model = createModel('authoring');
       expect(model).toBeDefined();
       expect(typeof model.invoke).toBe('function');
     });

@@ -6,8 +6,7 @@ import { PIPELINE_PHASES, type Job, type PipelinePhase } from '../types/job.js';
 import { createAnalysisMachine, type MachineContext, type PipelineRunners } from './analysis-machine.js';
 import { LintRunner } from './runners/lint-runner.js';
 import { AnalyzeRunner } from './runners/analyze-runner.js';
-import { StubGenerateRunner } from './runners/generate-runner.js';
-import { StubValidateRunner } from './runners/validate-runner.js';
+import { AgentGenerateValidateRunner } from './runners/generate-validate-runner.js';
 
 const MAX_CONCURRENT_JOBS = 10;
 
@@ -20,8 +19,7 @@ function phaseDescription(phase: string): string {
     SUBMIT: 'Job accepted, queued for processing',
     LINT: 'Running static analysis',
     ANALYZE: 'Analyzing component patterns',
-    GENERATE: 'Generating manual test walkthroughs',
-    VALIDATE: 'Validating output accuracy',
+    GENERATE_VALIDATE: 'Generating and validating test walkthroughs',
     COMPLETE: 'Analysis complete',
     FAILED: 'Job failed',
   };
@@ -55,8 +53,7 @@ function defaultRunners(): PipelineRunners {
   return {
     lint: new LintRunner(),
     analyze: new AnalyzeRunner(),
-    generate: new StubGenerateRunner(),
-    validate: new StubValidateRunner(),
+    generateValidate: new AgentGenerateValidateRunner(),
   };
 }
 

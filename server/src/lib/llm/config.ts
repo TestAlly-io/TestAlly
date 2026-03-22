@@ -2,7 +2,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { ChatOpenAI } from '@langchain/openai';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
-export type LlmRole = 'planning' | 'generation' | 'validation' | 'inference';
+export type LlmRole = 'planning' | 'generation' | 'validation' | 'inference' | 'authoring';
 export type LlmProvider = 'anthropic' | 'openai' | 'cloudfest' | 'deepseek';
 
 interface RoleConfig {
@@ -49,6 +49,7 @@ const ROLE_DEFAULTS: Record<LlmRole, { temperature: number; maxTokens: number }>
   generation: { temperature: 0.2, maxTokens: 8192 },
   validation: { temperature: 0,   maxTokens: 4096 },
   inference:  { temperature: 0.1, maxTokens: 4096 },
+  authoring:  { temperature: 0.1, maxTokens: 8192 },
 };
 
 function getRoleConfig(role: LlmRole): RoleConfig {

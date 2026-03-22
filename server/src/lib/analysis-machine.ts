@@ -5,16 +5,28 @@ import type { JobError, PipelinePhase } from '../types/job.js';
 import type { PhaseRunner } from './phase-runner.js';
 import type { LintInput } from './runners/lint-runner.js';
 import type { AnalyzeInput } from './runners/analyze-runner.js';
-import type { GenerateInput } from './runners/generate-runner.js';
-import type { ValidateInput, ValidationOutput } from './runners/validate-runner.js';
+import type {
+  GenerateValidateInput,
+  GenerateValidateOutput,
+} from './runners/generate-validate-runner.js';
 
-export const MAX_ITERATIONS = 2;
+export const MAX_ITERATIONS = 5;
+
+export const DEFAULT_CONFIDENCE_THRESHOLD = 95;
+
+export function getConfidenceThreshold(): number {
+  const raw = process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD;
+  if (raw === undefined) return DEFAULT_CONFIDENCE_THRESHOLD;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
+    ? parsed
+    : DEFAULT_CONFIDENCE_THRESHOLD;
+}
 
 export interface PipelineRunners {
   lint: PhaseRunner<LintInput, AutomatedResults>;
   analyze: PhaseRunner<AnalyzeInput, ComponentAnalysis>;
-  generate: PhaseRunner<GenerateInput, ManualTest[]>;
-  validate: PhaseRunner<ValidateInput, ValidationOutput>;
+  generateValidate: PhaseRunner<GenerateValidateInput, GenerateValidateOutput>;
 }
 
 export interface MachineContext {
@@ -22,7 +34,7 @@ export interface MachineContext {
   lintResult: AutomatedResults | null;
   analysisResult: ComponentAnalysis | null;
   generatedTests: ManualTest[] | null;
-  validationResult: ValidationOutput | null;
+  validationResult: GenerateValidateOutput['validation'] | null;
   iterationCount: number;
   errors: JobError[];
 }
@@ -64,10 +76,7 @@ const analysisMachine = setup({
     runAnalyze: fromPromise<ComponentAnalysis, AnalyzeInput>(async () => {
       throw new Error('No runner provided — use createAnalysisMachine()');
     }),
-    runGenerate: fromPromise<ManualTest[], GenerateInput>(async () => {
-      throw new Error('No runner provided — use createAnalysisMachine()');
-    }),
-    runValidate: fromPromise<ValidationOutput, ValidateInput>(async () => {
+    runGenerateValidate: fromPromise<GenerateValidateOutput, GenerateValidateInput>(async () => {
       throw new Error('No runner provided — use createAnalysisMachine()');
     }),
   },
@@ -112,7 +121,7 @@ const analysisMachine = setup({
           lintResult: context.lintResult ?? { axeViolations: [], eslintMessages: [], customRuleFlags: [] },
         }),
         onDone: {
-          target: 'GENERATE',
+          target: 'GENERATE_VALIDATE',
           actions: assign({ analysisResult: ({ event }) => event.output }),
         },
         onError: {
@@ -122,9 +131,9 @@ const analysisMachine = setup({
       },
     },
 
-    GENERATE: {
+    GENERATE_VALIDATE: {
       invoke: {
-        src: 'runGenerate',
+        src: 'runGenerateValidate',
         input: ({ context }) => ({
           analysisInput: context.input,
           analysisResult: context.analysisResult ?? {
@@ -136,58 +145,16 @@ const analysisMachine = setup({
           },
         }),
         onDone: {
-          target: 'VALIDATE',
-          actions: assign({ generatedTests: ({ event }) => event.output }),
+          target: 'COMPLETE',
+          actions: assign(({ event }) => ({
+            generatedTests: event.output.generatedTests,
+            validationResult: event.output.validation,
+            iterationCount: event.output.iterationCount,
+          })),
         },
         onError: {
           target: 'FAILED',
-          actions: assign({ errors: ({ event }) => [toError('GENERATE', event.error)] }),
-        },
-      },
-    },
-
-    VALIDATE: {
-      invoke: {
-        src: 'runValidate',
-        input: ({ context }) => ({
-          generatedTests: context.generatedTests ?? [],
-          analysisResult: context.analysisResult ?? {
-            patternType: 'unknown' as const,
-            patternConfidence: 0,
-            events: [],
-            cssFlags: [],
-            ariaFindings: [],
-          },
-        }),
-        onDone: [
-          {
-            guard: ({ event }) => event.output.passed,
-            target: 'COMPLETE',
-            actions: assign({ validationResult: ({ event }) => event.output }),
-          },
-          {
-            guard: ({ context }) => context.iterationCount < MAX_ITERATIONS,
-            target: 'ANALYZE',
-            actions: assign(({ context, event }) => ({
-              validationResult: event.output,
-              iterationCount: context.iterationCount + 1,
-            })),
-          },
-          {
-            target: 'FAILED',
-            actions: assign({
-              errors: () => [
-                {
-                  message: `Validation failed after ${MAX_ITERATIONS} iterations`,
-                  phase: 'VALIDATE' as const,
-                },
-              ],
-            }),
-          },
-        ],
-        onError: {
-          target: 'FAILED',
-          actions: assign({ errors: ({ event }) => [toError('VALIDATE', event.error)] }),
+          actions: assign({ errors: ({ event }) => [toError('GENERATE_VALIDATE', event.error)] }),
         },
       },
     },
@@ -208,8 +175,7 @@ export function createAnalysisMachine(runners: PipelineRunners) {
     actors: {
       runLint: runnerActor(runners.lint, 'LINT'),
       runAnalyze: runnerActor(runners.analyze, 'ANALYZE'),
-      runGenerate: runnerActor(runners.generate, 'GENERATE'),
-      runValidate: runnerActor(runners.validate, 'VALIDATE'),
+      runGenerateValidate: runnerActor(runners.generateValidate, 'GENERATE_VALIDATE'),
     },
   });
 }

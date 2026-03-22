@@ -1,14 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { JobManager } from '../job-manager.js';
-import type { AnalysisInput } from '../../types/analysis.js';
-import type { PhaseRunner } from '../phase-runner.js';
-import type { LintInput } from '../runners/lint-runner.js';
-import type { AnalyzeInput } from '../runners/analyze-runner.js';
-import type { GenerateInput } from '../runners/generate-runner.js';
-import type { ValidateInput, ValidationOutput } from '../runners/validate-runner.js';
-import type { AutomatedResults, ComponentAnalysis } from '../../types/analysis.js';
-import type { ManualTest } from '../../types/ittt.js';
+import type { AnalysisInput, AutomatedResults, ComponentAnalysis } from '../../types/analysis.js';
 import type { Job } from '../../types/job.js';
+import type { PipelineRunners } from '../analysis-machine.js';
+import type { GenerateValidateOutput } from '../runners/generate-validate-runner.js';
 
 const sampleInput: AnalysisInput = {
   code: '<div class="accordion">test</div>',
@@ -29,20 +24,14 @@ function waitForDone(job: Job): Promise<void> {
 }
 
 /** Build a JobManager backed by stub runners that resolve instantly. */
-function makeManager(overrides?: {
-  lint?: Partial<PhaseRunner<LintInput, AutomatedResults>>;
-  analyze?: Partial<PhaseRunner<AnalyzeInput, ComponentAnalysis>>;
-  generate?: Partial<PhaseRunner<GenerateInput, ManualTest[]>>;
-  validate?: Partial<PhaseRunner<ValidateInput, ValidationOutput>>;
-}): JobManager {
-  const runners = {
+function makeManager(overrides?: Partial<PipelineRunners>): JobManager {
+  const runners: PipelineRunners = {
     lint: {
       execute: async (): Promise<AutomatedResults> => ({
         axeViolations: [],
         eslintMessages: [],
         customRuleFlags: [],
       }),
-      ...overrides?.lint,
     },
     analyze: {
       execute: async (): Promise<ComponentAnalysis> => ({
@@ -52,16 +41,15 @@ function makeManager(overrides?: {
         cssFlags: [],
         ariaFindings: [],
       }),
-      ...overrides?.analyze,
     },
-    generate: {
-      execute: async (): Promise<ManualTest[]> => [],
-      ...overrides?.generate,
+    generateValidate: {
+      execute: async (): Promise<GenerateValidateOutput> => ({
+        generatedTests: [],
+        validation: { confidence: 98, passed: true },
+        iterationCount: 0,
+      }),
     },
-    validate: {
-      execute: async (): Promise<ValidationOutput> => ({ confidence: 0.95, passed: true }),
-      ...overrides?.validate,
-    },
+    ...overrides,
   };
   return new JobManager(runners);
 }
@@ -80,14 +68,10 @@ describe('JobManager', () => {
 
     it('returns null when at capacity', async () => {
       // Fill capacity with jobs that won't complete quickly
-      const neverResolve: PhaseRunner<LintInput, AutomatedResults> = {
-        execute: () => new Promise(() => {}),
-      };
       const blockingManager = new JobManager({
-        lint: neverResolve,
+        lint: { execute: () => new Promise(() => {}) },
         analyze: { execute: () => new Promise(() => {}) },
-        generate: { execute: () => new Promise(() => {}) },
-        validate: { execute: () => new Promise(() => {}) },
+        generateValidate: { execute: () => new Promise(() => {}) },
       });
 
       for (let i = 0; i < 10; i++) {
@@ -142,8 +126,7 @@ describe('JobManager', () => {
           gate: () => false, // gate blocks LINT
         },
         analyze: { execute: async () => ({ patternType: 'unknown', patternConfidence: 0, events: [], cssFlags: [], ariaFindings: [] }) },
-        generate: { execute: async () => [] },
-        validate: { execute: async () => ({ confidence: 1.0, passed: true }) },
+        generateValidate: { execute: async () => ({ generatedTests: [], validation: { confidence: 100, passed: true }, iterationCount: 0 }) },
       });
 
       const job = manager.createJob(sampleInput)!;
@@ -155,16 +138,17 @@ describe('JobManager', () => {
     });
   });
 
-  describe('VALIDATE → ANALYZE loop', () => {
-    it('loops back to ANALYZE when validation fails and iterations remain', async () => {
-      let validateCallCount = 0;
+  describe('generateValidate phase', () => {
+    it('populates iterationCount from runner output', async () => {
       const manager = makeManager({
-        validate: {
-          execute: async (): Promise<ValidationOutput> => {
-            validateCallCount++;
-            // Fail on first call, pass on second
-            return { confidence: 0.5, passed: validateCallCount > 1 };
-          },
+        generateValidate: {
+          execute: async (): Promise<GenerateValidateOutput> => ({
+            generatedTests: [
+              { id: 'test-1', title: 'Focus test', wcagCriteria: ['2.4.7'], priority: 'critical', steps: [{ action: 'Tab', expected: 'Focus ring', ifFail: 'No focus' }], sources: [] },
+            ],
+            validation: { confidence: 96, passed: true },
+            iterationCount: 2,
+          }),
         },
       });
 
@@ -172,14 +156,16 @@ describe('JobManager', () => {
       await waitForDone(job);
 
       expect(job.status).toBe('completed');
-      expect(validateCallCount).toBe(2);
-      expect(job.iterationCount).toBe(1);
+      expect(job.iterationCount).toBe(2);
+      expect(job.result!.manualTests).toHaveLength(1);
     });
 
-    it('fails the job when max iterations are exceeded', async () => {
+    it('fails the job when generateValidate throws', async () => {
       const manager = makeManager({
-        validate: {
-          execute: async (): Promise<ValidationOutput> => ({ confidence: 0.3, passed: false }),
+        generateValidate: {
+          execute: async () => {
+            throw new Error('LLM unavailable');
+          },
         },
       });
 
@@ -187,7 +173,9 @@ describe('JobManager', () => {
       await waitForDone(job);
 
       expect(job.status).toBe('failed');
-      expect(job.errors[0]?.message).toMatch(/iteration/i);
+      expect(job.failedAt).not.toBeNull();
+      expect(job.errors[0]?.message).toBe('LLM unavailable');
+      expect(job.errors[0]?.phase).toBe('GENERATE_VALIDATE');
     });
   });
 
@@ -230,8 +218,7 @@ describe('JobManager', () => {
       const manager = new JobManager({
         lint: { execute: () => new Promise(() => {}) },
         analyze: { execute: () => new Promise(() => {}) },
-        generate: { execute: () => new Promise(() => {}) },
-        validate: { execute: () => new Promise(() => {}) },
+        generateValidate: { execute: () => new Promise(() => {}) },
       });
 
       const job = manager.createJob(sampleInput)!;
@@ -261,8 +248,7 @@ describe('JobManager', () => {
       const manager = new JobManager({
         lint: { execute: () => new Promise(() => {}) },
         analyze: { execute: () => new Promise(() => {}) },
-        generate: { execute: () => new Promise(() => {}) },
-        validate: { execute: () => new Promise(() => {}) },
+        generateValidate: { execute: () => new Promise(() => {}) },
       });
 
       const job = manager.createJob(sampleInput)!;

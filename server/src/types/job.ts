@@ -11,8 +11,7 @@ export const PIPELINE_PHASES = [
   // 'BUILD',  // post-MVP
   // 'RENDER', // post-MVP
   'ANALYZE',
-  'GENERATE',
-  'VALIDATE',
+  'GENERATE_VALIDATE',
   'COMPLETE',
 ] as const;
 
@@ -40,6 +39,6 @@ export interface Job {
   updatedAt: string;       // ISO 8601
   completedAt: string | null;
   failedAt: string | null;
-  /** Number of ANALYZE→VALIDATE loops completed (max 2) */
+  /** Number of generate-validate iterations the authoring agent performed */
   iterationCount: number;
 }

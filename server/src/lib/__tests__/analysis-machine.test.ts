@@ -1,10 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { createActor, waitFor } from 'xstate';
-import { createAnalysisMachine, MAX_ITERATIONS } from '../analysis-machine.js';
+import {
+  createAnalysisMachine,
+  DEFAULT_CONFIDENCE_THRESHOLD,
+  getConfidenceThreshold,
+} from '../analysis-machine.js';
 import type { AutomatedResults, ComponentAnalysis } from '../../types/analysis.js';
-import type { ManualTest } from '../../types/ittt.js';
-import type { ValidationOutput } from '../runners/validate-runner.js';
 import type { PipelineRunners } from '../analysis-machine.js';
+import type { GenerateValidateOutput } from '../runners/generate-validate-runner.js';
 
 const sampleInput = {
   code: '<div role="tablist">tabs</div>',
@@ -30,11 +33,12 @@ function makeRunners(overrides?: Partial<PipelineRunners>): PipelineRunners {
         ariaFindings: [],
       }),
     },
-    generate: {
-      execute: async (): Promise<ManualTest[]> => [],
-    },
-    validate: {
-      execute: async (): Promise<ValidationOutput> => ({ confidence: 0.9, passed: true }),
+    generateValidate: {
+      execute: async (): Promise<GenerateValidateOutput> => ({
+        generatedTests: [],
+        validation: { confidence: 98, passed: true },
+        iterationCount: 0,
+      }),
     },
     ...overrides,
   };
@@ -52,7 +56,7 @@ describe('analysisMachine', () => {
     expect(snapshot.context.analysisResult?.patternType).toBe('tabs');
     expect(snapshot.context.lintResult).not.toBeNull();
     expect(snapshot.context.generatedTests).not.toBeNull();
-    expect(snapshot.context.validationResult?.passed).toBe(true);
+    expect(snapshot.context.validationResult?.confidence).toBeGreaterThanOrEqual(DEFAULT_CONFIDENCE_THRESHOLD);
   });
 
   it('reaches FAILED when a runner throws', async () => {
@@ -93,14 +97,34 @@ describe('analysisMachine', () => {
     expect(snapshot.context.errors[0]?.message).toMatch(/gate/i);
   });
 
-  it('loops VALIDATE → ANALYZE up to MAX_ITERATIONS then fails', async () => {
-    let validateCalls = 0;
+  it('populates iterationCount from generateValidate output', async () => {
     const machine = createAnalysisMachine(
       makeRunners({
-        validate: {
-          execute: async (): Promise<ValidationOutput> => {
-            validateCalls++;
-            return { confidence: 0.3, passed: false };
+        generateValidate: {
+          execute: async (): Promise<GenerateValidateOutput> => ({
+            generatedTests: [],
+            validation: { confidence: 72, passed: false, feedback: 'needs work' },
+            iterationCount: 3,
+          }),
+        },
+      }),
+    );
+    const actor = createActor(machine, { input: { analysisInput: sampleInput } });
+    actor.start();
+
+    const snapshot = await waitFor(actor, (s) => s.value === 'COMPLETE' || s.value === 'FAILED', { timeout: 1000 });
+
+    expect(snapshot.value).toBe('COMPLETE');
+    expect(snapshot.context.iterationCount).toBe(3);
+    expect(snapshot.context.validationResult?.confidence).toBe(72);
+  });
+
+  it('reaches FAILED when generateValidate throws', async () => {
+    const machine = createAnalysisMachine(
+      makeRunners({
+        generateValidate: {
+          execute: async () => {
+            throw new Error('agent crashed');
           },
         },
       }),
@@ -111,32 +135,8 @@ describe('analysisMachine', () => {
     const snapshot = await waitFor(actor, (s) => s.value === 'COMPLETE' || s.value === 'FAILED', { timeout: 1000 });
 
     expect(snapshot.value).toBe('FAILED');
-    // Initial call + MAX_ITERATIONS retries = 1 + MAX_ITERATIONS
-    expect(validateCalls).toBe(1 + MAX_ITERATIONS);
-    expect(snapshot.context.iterationCount).toBe(MAX_ITERATIONS);
-    expect(snapshot.context.errors[0]?.message).toMatch(/iteration/i);
-  });
-
-  it('recovers on retry when second validation passes', async () => {
-    let validateCalls = 0;
-    const machine = createAnalysisMachine(
-      makeRunners({
-        validate: {
-          execute: async (): Promise<ValidationOutput> => {
-            validateCalls++;
-            return { confidence: validateCalls > 1 ? 0.95 : 0.4, passed: validateCalls > 1 };
-          },
-        },
-      }),
-    );
-    const actor = createActor(machine, { input: { analysisInput: sampleInput } });
-    actor.start();
-
-    const snapshot = await waitFor(actor, (s) => s.value === 'COMPLETE' || s.value === 'FAILED', { timeout: 1000 });
-
-    expect(snapshot.value).toBe('COMPLETE');
-    expect(validateCalls).toBe(2);
-    expect(snapshot.context.iterationCount).toBe(1);
+    expect(snapshot.context.errors[0]?.message).toBe('agent crashed');
+    expect(snapshot.context.errors[0]?.phase).toBe('GENERATE_VALIDATE');
   });
 
   it('preserves context across the full pipeline', async () => {
@@ -149,5 +149,31 @@ describe('analysisMachine', () => {
     expect(snapshot.context.input).toEqual(sampleInput);
     expect(snapshot.context.iterationCount).toBe(0);
     expect(snapshot.context.errors).toEqual([]);
+  });
+});
+
+describe('getConfidenceThreshold', () => {
+  afterEach(() => {
+    delete process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD;
+  });
+
+  it('returns default when env var is not set', () => {
+    delete process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD;
+    expect(getConfidenceThreshold()).toBe(DEFAULT_CONFIDENCE_THRESHOLD);
+  });
+
+  it('reads from WALKTHROUGH_CONFIDENCE_THRESHOLD env var', () => {
+    process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD = '80';
+    expect(getConfidenceThreshold()).toBe(80);
+  });
+
+  it('returns default for invalid values', () => {
+    process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD = 'banana';
+    expect(getConfidenceThreshold()).toBe(DEFAULT_CONFIDENCE_THRESHOLD);
+  });
+
+  it('returns default for out-of-range values', () => {
+    process.env.WALKTHROUGH_CONFIDENCE_THRESHOLD = '150';
+    expect(getConfidenceThreshold()).toBe(DEFAULT_CONFIDENCE_THRESHOLD);
   });
 });

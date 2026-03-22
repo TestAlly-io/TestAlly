@@ -3,8 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import { JobManager } from '../../lib/job-manager.js';
 import type { AutomatedResults, ComponentAnalysis } from '../../types/analysis.js';
-import type { ManualTest } from '../../types/ittt.js';
-import type { ValidationOutput } from '../../lib/runners/validate-runner.js';
+import type { GenerateValidateOutput } from '../../lib/runners/generate-validate-runner.js';
 import type { Job } from '../../types/job.js';
 import type {
   AnalyzeResponse,
@@ -52,11 +51,12 @@ const defaultRunners = () => ({
       ariaFindings: [],
     }),
   },
-  generate: {
-    execute: async (): Promise<ManualTest[]> => [],
-  },
-  validate: {
-    execute: async (): Promise<ValidationOutput> => ({ confidence: 1.0, passed: true }),
+  generateValidate: {
+    execute: async (): Promise<GenerateValidateOutput> => ({
+      generatedTests: [],
+      validation: { confidence: 98, passed: true },
+      iterationCount: 0,
+    }),
   },
 });
 
@@ -64,8 +64,7 @@ const defaultRunners = () => ({
 const blockingRunners = () => ({
   lint: { execute: () => new Promise<AutomatedResults>(() => {}) },
   analyze: { execute: () => new Promise<ComponentAnalysis>(() => {}) },
-  generate: { execute: () => new Promise<ManualTest[]>(() => {}) },
-  validate: { execute: () => new Promise<ValidationOutput>(() => {}) },
+  generateValidate: { execute: () => new Promise<GenerateValidateOutput>(() => {}) },
 });
 
 /** Wait until a job reaches a terminal state. */
@@ -196,10 +195,11 @@ describe('API Routes', () => {
 
     it('returns failed status for a failed job', async () => {
       jobManager = new JobManager({
-        ...defaultRunners(),
         lint: {
           execute: async () => { throw new Error('LLM unavailable'); },
         },
+        analyze: defaultRunners().analyze,
+        generateValidate: defaultRunners().generateValidate,
       });
       app = createTestApp(jobManager);
 
@@ -277,10 +277,11 @@ describe('API Routes', () => {
 
     it('returns 422 for a failed job', async () => {
       jobManager = new JobManager({
-        ...defaultRunners(),
         lint: {
           execute: async () => { throw new Error('LLM unavailable'); },
         },
+        analyze: defaultRunners().analyze,
+        generateValidate: defaultRunners().generateValidate,
       });
       app = createTestApp(jobManager);
 

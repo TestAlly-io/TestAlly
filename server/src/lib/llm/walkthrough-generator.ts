@@ -16,12 +16,22 @@ import {
 
 const MAX_RETRIES = 2;
 
+export interface GenerationOptions {
+  /** Current iteration in the GENERATE↔VALIDATE loop (0 = first pass). */
+  iteration?: number;
+  /** Feedback from the previous validation pass, appended to the prompt. */
+  validationFeedback?: string;
+}
+
 export async function generateWalkthrough(
   analysisResults: string,
   componentType: string,
   description: string,
+  options?: GenerationOptions,
 ): Promise<AnalysisResult> {
   const model = createModel('generation');
+  const iteration = options?.iteration ?? 0;
+  const validationFeedback = options?.validationFeedback;
 
   // Build context from knowledge base
   const wcagCriteria = getCriteriaByIds(['1.1.1', '2.1.1', '2.4.7', '4.1.2']);
@@ -32,7 +42,7 @@ export async function generateWalkthrough(
   const atGuidesText = atGuides.map((g) => `${g.tool} (${g.platform}): ${g.label}`).join('\n');
   const manualTestingRef = getManualTestingRef();
 
-  const userPrompt = GENERATION_USER_PROMPT.replace('{componentType}', componentType)
+  let userPrompt = GENERATION_USER_PROMPT.replace('{componentType}', componentType)
     .replace('{description}', description)
     .replace('{analysisResults}', analysisResults)
     .replace('{wcagContext}', wcagContext)
@@ -40,10 +50,14 @@ export async function generateWalkthrough(
     .replace('{manualTestingRef}', manualTestingRef)
     .replace('{outputSchema}', JSON.stringify(OUTPUT_SCHEMA, null, 2));
 
+  if (validationFeedback) {
+    userPrompt += `\n\n--- Validation Feedback (iteration ${iteration}) ---\nThe previous walkthrough was reviewed and did not meet the confidence threshold. Address the following issues in your revised output:\n${validationFeedback}`;
+  }
+
   const tracingConfig = getTracingCallbacks({
-    runName: 'walkthrough-generation',
-    tags: ['generation', componentType],
-    metadata: { componentType, attempt: 0 },
+    runName: `walkthrough-generation${iteration > 0 ? ` [iteration ${iteration}]` : ''}`,
+    tags: ['generation', componentType, ...(iteration > 0 ? [`iteration-${iteration}`] : [])],
+    metadata: { componentType, attempt: 0, iteration },
   });
 
   let lastError: Error | null = null;

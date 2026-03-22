@@ -6,12 +6,13 @@ export { createAnalysisTools } from './tools.js';
 export { runPlanningAgent } from './planning-agent.js';
 
 export { generateWalkthrough, getGenerationModelName } from './walkthrough-generator.js';
+export type { GenerationOptions } from './walkthrough-generator.js';
 
 export {
   validateWalkthrough,
   getValidationModelName,
 } from './walkthrough-validator.js';
-export type { ValidationResult, ValidationIssue, MissingTest } from './walkthrough-validator.js';
+export type { ValidationResult, ValidationIssue, MissingTest, ValidationOptions } from './walkthrough-validator.js';
 
 export { extractJson } from './utils.js';
 
