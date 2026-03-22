@@ -4,8 +4,8 @@ import type { AnalysisInput } from '../types/analysis.js';
 import type { AnalysisResult } from '../types/ittt.js';
 import { PIPELINE_PHASES, type Job, type PipelinePhase } from '../types/job.js';
 import { createAnalysisMachine, type MachineContext, type PipelineRunners } from './analysis-machine.js';
-import { StubLintRunner } from './runners/lint-runner.js';
-import { StubAnalyzeRunner } from './runners/analyze-runner.js';
+import { LintRunner } from './runners/lint-runner.js';
+import { AnalyzeRunner } from './runners/analyze-runner.js';
 import { StubGenerateRunner } from './runners/generate-runner.js';
 import { StubValidateRunner } from './runners/validate-runner.js';
 
@@ -41,15 +41,19 @@ function buildResult(ctx: MachineContext): AnalysisResult {
       customRuleFlags: [],
     },
     manualTests: ctx.generatedTests ?? [],
-    allClear: (ctx.generatedTests?.length ?? 0) === 0,
+    allClear:
+      (ctx.generatedTests?.length ?? 0) === 0 &&
+      (ctx.lintResult?.axeViolations.length ?? 0) === 0 &&
+      (ctx.lintResult?.eslintMessages.length ?? 0) === 0 &&
+      (ctx.lintResult?.customRuleFlags.length ?? 0) === 0,
     summary: '',
   };
 }
 
 function defaultRunners(): PipelineRunners {
   return {
-    lint: new StubLintRunner(),
-    analyze: new StubAnalyzeRunner(),
+    lint: new LintRunner(),
+    analyze: new AnalyzeRunner(),
     generate: new StubGenerateRunner(),
     validate: new StubValidateRunner(),
   };
