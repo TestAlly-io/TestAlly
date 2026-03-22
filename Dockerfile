@@ -7,13 +7,12 @@ WORKDIR /app
 
 # ---- Dependencies ----
 FROM base AS deps
-# Native libs required by the canvas npm package (used by axe-core in tests).
-RUN apk add --no-cache build-base g++ cairo-dev pango-dev giflib-dev jpeg-dev librsvg-dev
-ENV FONTCONFIG_FILE=/etc/fonts/fonts.conf
 COPY package*.json ./
 COPY client ./client
 COPY server ./server
-RUN npm install
+# canvas is a test-only devDep requiring native libs (Cairo, Pango, etc.).
+# Strip it before install so we don't need build toolchains in the image.
+RUN cd server && npm pkg delete devDependencies.canvas && cd /app && npm install
 
 # ---- Build client ----
 # Bump or pass --build-arg CACHEBUST=$(date +%s) if the UI in the image looks stale.
