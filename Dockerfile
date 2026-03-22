@@ -33,9 +33,9 @@ RUN npm install --omit=dev
 FROM node:24-alpine AS runner
 WORKDIR /app
 
-# mode: "client" or "server"
-ARG mode=server
-ENV APP_MODE=${mode}
+# APP_MODE: "client" or "server"
+ARG APP_MODE=server
+ENV APP_MODE=${APP_MODE}
 
 # APP_PORT controls which port is exposed and used at runtime
 ARG APP_PORT=3001
