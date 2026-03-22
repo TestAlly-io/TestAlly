@@ -7,7 +7,7 @@ vi.mock('../../analyzer/pattern-detector.js', () => ({
   detectPattern: vi.fn().mockReturnValue({
     patternType: 'accordion',
     confidence: 85,
-    indicators: ['aria-expanded', 'panel toggle'],
+    signals: ['aria-expanded', 'panel toggle'],
   }),
 }));
 
