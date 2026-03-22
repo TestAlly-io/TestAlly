@@ -4,6 +4,7 @@ import { parseCombinedInput, validateComponentSourceOnly } from '../lib/parseCom
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import styles from './OneInputWorkspace.module.css';
 import { CodeEditor, type CodeEditorProps } from '../components/CodeEditor';
+import { ResultsPanel } from '../components/ResultsPanel';
 
 type AppState = 'idle' | 'submitting' | 'analyzing' | 'complete' | 'error';
 
@@ -68,6 +69,7 @@ export function OneInputWorkspace() {
 
       setAppState('submitting');
       setSubmitPhase('infer');
+      setProgress(null);
       setError(null);
       setResults(null);
       setExtracted(null);
@@ -216,10 +218,9 @@ export function OneInputWorkspace() {
         <h2 className={styles.panelTitle}>Results</h2>
 
         {appState === 'idle' && (
-          <p className={styles.placeholder}>
-            When you’re ready, hit Analyze — we’ll read your component, fill in what we can, and run the job.
-            (Full results will show up here once the real pipeline is hooked up.)
-          </p>
+            <p>
+              When you’re ready, hit Analyze and the results will appear here.
+            </p>
         )}
 
         {appState === 'analyzing' && progress != null && (
@@ -244,14 +245,12 @@ export function OneInputWorkspace() {
         )}
 
         {appState === 'complete' &&
-          results?.status === 'success' &&
-          results.analysis != null && (
-            <div className={styles.results}>
-              <pre className={styles.jsonOutput}>
-                {JSON.stringify(results.analysis, null, 2)}
-              </pre>
-            </div>
-          )}
+            results?.status === 'success' &&
+            results.analysis != null && (
+                <div className={styles.results}>
+                  <ResultsPanel result={results.analysis} />
+                </div>
+            )}
       </div>
     </div>
   );
