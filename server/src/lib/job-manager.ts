@@ -42,7 +42,7 @@ function buildResult(ctx: MachineContext): AnalysisResult {
     },
     manualTests: ctx.generatedTests ?? [],
     allClear:
-      ctx.lintResult !== undefined &&
+      ctx.lintResult !== null &&
       (ctx.generatedTests?.length ?? 0) === 0 &&
       ctx.lintResult.axeViolations.length === 0 &&
       ctx.lintResult.eslintMessages.length === 0 &&
