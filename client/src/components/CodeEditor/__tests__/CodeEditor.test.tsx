@@ -60,7 +60,7 @@ describe('CodeEditor', () => {
     });
   });
 
-  it('applies id to the editor mount container', async () => {
+  it('applies id to the contenteditable (label htmlFor target)', async () => {
     const { container } = render(
       <CodeEditor
         {...baseProps}

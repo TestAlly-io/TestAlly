@@ -1,10 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { inferComponent, submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import { parseCombinedInput, validateComponentSourceOnly } from '../lib/parseCombinedInput';
+import { ResultsPanel } from '../components/ResultsPanel';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import styles from './OneInputWorkspace.module.css';
-import { CodeEditor, type CodeEditorProps } from '../components/CodeEditor';
-import { ResultsPanel } from '../components/ResultsPanel';
 
 type AppState = 'idle' | 'submitting' | 'analyzing' | 'complete' | 'error';
 
@@ -18,20 +17,6 @@ export function Panel() {
 }
 
 We’ll infer language, pattern, and what to test for accessibility.`;
-
-function toCodeEditorLanguage(lang: AnalyzeRequest['language']): CodeEditorProps['language'] {
-  switch (lang) {
-    case 'jsx':
-      return 'jsx';
-    case 'tsx':
-      return 'tsx';
-    case 'vue':
-    case 'svelte':
-      return 'javascript';
-    default:
-      return 'html';
-  }
-}
 
 interface ExtractedSummary {
   componentKind: string | null;
@@ -152,15 +137,20 @@ export function OneInputWorkspace() {
           and a testing angle when you run Analyze.
         </p>
 
-        <CodeEditor
-          id="paste"
-          value={paste}
-          onChange={setPaste}
-          language={toCodeEditorLanguage(heuristic.language)}
-          label="Component Code"
-          minHeight="250px"
-          placeholder={PLACEHOLDER}
-        />
+        <div className={styles.field}>
+          <label htmlFor="paste" className={styles.label}>
+            Component Code
+          </label>
+          <textarea
+            id="paste"
+            className={styles.codeInput}
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            placeholder={PLACEHOLDER}
+            spellCheck={false}
+            style={{ minHeight: '250px' }}
+          />
+        </div>
 
         <div className={styles.meta} aria-live="polite">
           Guessed language (offline): <strong>{heuristic.language}</strong>

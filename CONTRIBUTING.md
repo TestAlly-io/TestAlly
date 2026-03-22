@@ -61,7 +61,7 @@ ANTHROPIC_API_KEY=your-key-here
 OPENAI_API_KEY=your-key-here
 ```
 
-These keys are never committed to the repository. See `docs/deployment-manual.md` for full environment configuration.
+These keys are never committed to the repository. See `docs/deployment-manual.md` for full environment configuration and `docs/configuration.md` for a concise variable reference.
 
 ## How to Contribute
 

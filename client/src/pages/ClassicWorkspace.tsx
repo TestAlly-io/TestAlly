@@ -2,27 +2,12 @@ import { useState, useActionState } from 'react';
 import { submitAnalysis, pollJobStatus, getManualTestResults } from '../api';
 import type { AnalyzeRequest, JobStatus, ManualTestResponse } from '../types/api';
 import { ResultsPanel } from '../components/ResultsPanel';
-import { CodeEditor, type CodeEditorProps } from '../components/CodeEditor';
 import styles from './ClassicWorkspace.module.css';
 
 type ActionState =
   | { status: 'idle' }
   | { status: 'complete'; results: ManualTestResponse }
   | { status: 'error'; message: string };
-
-function toCodeEditorLanguage(lang: AnalyzeRequest['language']): CodeEditorProps['language'] {
-  switch (lang) {
-    case 'jsx':
-      return 'jsx';
-    case 'tsx':
-      return 'tsx';
-    case 'vue':
-    case 'svelte':
-      return 'javascript';
-    default:
-      return 'html';
-  }
-}
 
 function SubmitButton({ isPending, progress }: { isPending: boolean; progress: JobStatus | null }) {
   return (
@@ -80,11 +65,6 @@ export function ClassicWorkspace() {
       <form className={styles.inputPanel} action={dispatch}>
         <h2 className={styles.panelTitle}>Component Input</h2>
 
-        {/* CodeMirror editors are not native named fields — mirror values for FormData / useActionState */}
-        <input type="hidden" name="code" value={code} readOnly aria-hidden />
-        <input type="hidden" name="css" value={css} readOnly aria-hidden />
-        <input type="hidden" name="js" value={js} readOnly aria-hidden />
-
         <div className={styles.field}>
           <label htmlFor="classic-language" className={styles.label}>
             Language
@@ -105,14 +85,20 @@ export function ClassicWorkspace() {
         </div>
 
         <div className={styles.field}>
-          <CodeEditor
+          <label htmlFor="classic-code" className={styles.label}>
+            Component Code <span className={styles.required} aria-hidden="true">*</span>
+          </label>
+          <textarea
             id="classic-code"
-            label="Component Code *"
+            name="code"
+            className={styles.codeInput}
             value={code}
-            onChange={setCode}
-            language={toCodeEditorLanguage(language)}
+            onChange={(e) => setCode(e.target.value)}
             placeholder="Paste your component HTML/JSX here..."
-            minHeight="280px"
+            required
+            aria-required="true"
+            spellCheck={false}
+            style={{ minHeight: '280px' }}
           />
         </div>
 
@@ -130,26 +116,34 @@ export function ClassicWorkspace() {
         </div>
 
         <div className={styles.field}>
-          <CodeEditor
+          <label htmlFor="classic-css" className={styles.label}>
+            CSS (optional)
+          </label>
+          <textarea
             id="classic-css"
-            label="CSS (optional)"
+            name="css"
+            className={styles.codeInput}
             value={css}
-            onChange={setCss}
-            language="css"
+            onChange={(e) => setCss(e.target.value)}
             placeholder="Associated CSS styles..."
-            minHeight="120px"
+            spellCheck={false}
+            style={{ minHeight: '120px' }}
           />
         </div>
 
         <div className={styles.field}>
-          <CodeEditor
+          <label htmlFor="classic-js" className={styles.label}>
+            JavaScript (optional)
+          </label>
+          <textarea
             id="classic-js"
-            label="JavaScript (optional)"
+            name="js"
+            className={styles.codeInput}
             value={js}
-            onChange={setJs}
-            language="javascript"
+            onChange={(e) => setJs(e.target.value)}
             placeholder="Associated JavaScript..."
-            minHeight="120px"
+            spellCheck={false}
+            style={{ minHeight: '120px' }}
           />
         </div>
 
