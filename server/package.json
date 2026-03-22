@@ -22,7 +22,7 @@
     "typescript-eslint": "^8.57.1",
     "express-rate-limit": "^8.3.1",
     "htmlparser2": "^11.0.0",
-    "jsdom": "^22.1.0",
+    "jsdom": "^29.0.1",
     "langchain": "^1.2.35",
     "uuid": "^13.0.0",
     "xstate": "^5.28.0",
