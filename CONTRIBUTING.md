@@ -25,7 +25,7 @@ Thank you for your interest in contributing to TestAlly! This project is an open
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/<org>/TestAlly.git
+   git remote add upstream https://github.com/TestAlly-io/TestAlly.git
    ```
 
 ## Development Setup
