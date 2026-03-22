@@ -9,8 +9,8 @@ Generated from `client/src/` (Vite + React).
 
 ## Shell
 
-- `layout/AppShell.tsx` — Header, tab list, tab panels.
-- **Tabs (current):** `overview` → `ClassicWorkspace`, `oneInput` → `OneInputWorkspace`.
+- `layout/AppShell.tsx` — Header and workspace. Some builds show only Classic (Overview) and omit the One input / Chat tabs.
+- **Tabs (when enabled):** `overview` → `ClassicWorkspace`, `oneInput` → `OneInputWorkspace`, `chat` → `ChatWorkspace`.
 
 ## Pages
 
@@ -18,6 +18,7 @@ Generated from `client/src/` (Vite + React).
 |-----------|------|------|
 | Classic workspace | `pages/ClassicWorkspace.tsx` | Split fields + editor + analysis flow. |
 | One-input workspace | `pages/OneInputWorkspace.tsx` | Single paste + infer + analysis flow. |
+| Chat workspace | `pages/ChatWorkspace.tsx` | Conversational draft + analyze (hidden in overview-only shell). |
 
 ## Shared API client
 
